@@ -20,8 +20,76 @@ Others guess from screenshots. We extract the **real code** — DOM, styles, com
 
 https://github.com/user-attachments/assets/248af639-20d9-45a8-ad0a-660a04a17b68
 
+## Open Source Multi-Agent Architecture
+
+**This entire multi-agent system is open source.** Learn from it, use it, build upon it.
+
+### Why Multi-Agent?
+
+Traditional single-model AI approaches hit a wall with complex tasks. One model trying to handle everything leads to:
+- Context window overflow on large pages
+- Hallucinations when juggling too many responsibilities
+- Slow, sequential processing
+
+Our solution: **Specialized agents working in parallel**, each focused on what it does best.
+
+### The Agent + Tools + Sandbox Pattern
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Multi-Agent System                    │
+├─────────────────────────────────────────────────────────┤
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐     │
+│  │ DOM Agent   │  │ Style Agent │  │ Code Agent  │     │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘     │
+│         │                │                │             │
+│         ▼                ▼                ▼             │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │                    Tools                         │   │
+│  │  • File Operations  • Code Analysis             │   │
+│  │  • Browser Control  • API Calls                 │   │
+│  └─────────────────────────────────────────────────┘   │
+│                         │                               │
+│                         ▼                               │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │              Sandbox (BoxLite)                   │   │
+│  │  Isolated execution environment for safe        │   │
+│  │  code generation, testing, and preview          │   │
+│  └─────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────┘
+```
+
+This pattern — **Agent + Tools + Sandbox** — is reusable for any AI agent product:
+
+| Component | Purpose | In Nexting |
+|-----------|---------|------------|
+| **Agents** | Specialized AI workers with focused responsibilities | DOM, Style, Component, Code agents |
+| **Tools** | Capabilities agents can invoke | File I/O, Browser automation, API calls |
+| **Sandbox** | Safe execution environment | BoxLite - isolated Node.js runtime |
+
+### Build Your Own
+
+The entire architecture is MIT licensed. Key directories to explore:
+
+```
+backend/
+├── agent/           # Multi-agent orchestration & prompts
+├── boxlite/         # Sandbox implementation
+├── extractor/       # Browser automation tools
+```
+
+### Connect With Me
+
+Building something with this architecture? Have questions? Reach out:
+
+[![Twitter](https://img.shields.io/badge/Twitter-@ericshang98-1DA1F2?style=flat&logo=twitter)](https://twitter.com/ericshang98)
+[![GitHub](https://img.shields.io/badge/GitHub-ericshang98-181717?style=flat&logo=github)](https://github.com/ericshang98)
+
+---
+
 ## Table of Contents
 
+- [Open Source Multi-Agent Architecture](#open-source-multi-agent-architecture)
 - [Why Nexting?](#why-nexting)
 - [Features](#features)
 - [Demo](#demo)
