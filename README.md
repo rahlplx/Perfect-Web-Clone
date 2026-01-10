@@ -48,6 +48,8 @@ We tried. Even with the **complete extracted JSON** — full DOM tree, all CSS r
 
 > **The core problem**: A 200KB extracted JSON exceeds practical context limits. Even if it fits, the model can't maintain coherence across DOM→CSS→Components→Code. Each step needs focused attention.
 
+**Honest limitation**: Complex animations are still hard to extract perfectly — but that's a crawler problem, not an agent problem. The multi-agent architecture itself is capable of **far more than web cloning**. Imagine: automated refactoring, codebase migration, documentation generation, or any task that benefits from divide-and-conquer with specialized AI workers.
+
 ### The Agent + Tools + Sandbox Pattern
 
 ```
