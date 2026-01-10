@@ -33,6 +33,21 @@ Traditional single-model AI approaches hit a wall with complex tasks. One model 
 
 Our solution: **Specialized agents working in parallel**, each focused on what it does best.
 
+### Why Not Just Use Cursor / Claude Code / Copilot?
+
+We tried. Even with the **complete extracted JSON** — full DOM tree, all CSS rules, every asset URL — single-model tools struggle:
+
+| Challenge | Cursor / Claude Code / Copilot | Nexting Multi-Agent |
+|-----------|-------------------------------|---------------------|
+| **50,000+ line DOM tree** | ❌ Context overflow, truncates critical parts | ✅ DOM Agent processes in chunks |
+| **3,000+ CSS rules** | ❌ Loses specificity, misses variables | ✅ Style Agent handles CSS separately |
+| **Component detection** | ❌ Guesses boundaries, creates monoliths | ✅ Dedicated agent identifies patterns |
+| **Responsive breakpoints** | ❌ Often hardcodes single viewport | ✅ Extracts all media queries |
+| **Hover/animation states** | ❌ Cannot see, cannot reproduce | ✅ Browser automation captures all |
+| **Output quality** | ❌ "Close enough" approximation | ✅ Pixel-perfect, production-ready |
+
+> **The core problem**: A 200KB extracted JSON exceeds practical context limits. Even if it fits, the model can't maintain coherence across DOM→CSS→Components→Code. Each step needs focused attention.
+
 ### The Agent + Tools + Sandbox Pattern
 
 ```
