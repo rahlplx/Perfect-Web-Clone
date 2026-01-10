@@ -18,7 +18,7 @@
 
 他のツールはスクリーンショットからコードを推測します。私たちは**実際のコード**を抽出します — DOM、スタイル、コンポーネント、インタラクション。数秒でピクセルパーフェクトで保守可能な出力を取得できます。
 
-https://github.com/ericshang98/perfect-web-clone/raw/main/docs/assets/nexting_show_1.mp4
+https://github.com/user-attachments/assets/248af639-20d9-45a8-ad0a-660a04a17b68
 
 ## 目次
 
@@ -76,7 +76,7 @@ https://github.com/ericshang98/perfect-web-clone/raw/main/docs/assets/nexting_sh
 
 <div align="center">
 
-https://github.com/ericshang98/perfect-web-clone/raw/main/docs/assets/nexting_show_1.mp4
+https://github.com/user-attachments/assets/248af639-20d9-45a8-ad0a-660a04a17b68
 
 </div>
 

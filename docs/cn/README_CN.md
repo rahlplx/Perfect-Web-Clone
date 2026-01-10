@@ -18,7 +18,7 @@
 
 其他工具从截图猜测代码。我们提取**真实代码** — DOM、样式、组件、交互。几秒钟内获得像素级精确、可维护的输出。
 
-https://github.com/ericshang98/perfect-web-clone/raw/main/docs/assets/nexting_show_1.mp4
+https://github.com/user-attachments/assets/248af639-20d9-45a8-ad0a-660a04a17b68
 
 ## 目录
 
@@ -76,7 +76,7 @@ https://github.com/ericshang98/perfect-web-clone/raw/main/docs/assets/nexting_sh
 
 <div align="center">
 
-https://github.com/ericshang98/perfect-web-clone/raw/main/docs/assets/nexting_show_1.mp4
+https://github.com/user-attachments/assets/248af639-20d9-45a8-ad0a-660a04a17b68
 
 </div>
 

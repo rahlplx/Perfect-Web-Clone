@@ -18,7 +18,7 @@ English | [中文](./docs/cn/README_CN.md) | [日本語](./docs/ja/README_JA.md)
 
 Others guess from screenshots. We extract the **real code** — DOM, styles, components, interactions. Get pixel-perfect, maintainable output in seconds.
 
-https://github.com/ericshang98/perfect-web-clone/raw/main/docs/assets/nexting_show_1.mp4
+https://github.com/user-attachments/assets/248af639-20d9-45a8-ad0a-660a04a17b68
 
 ## Table of Contents
 
@@ -76,7 +76,7 @@ Traditional single-model approaches fail on complex pages. Our multi-agent syste
 
 <div align="center">
 
-https://github.com/ericshang98/perfect-web-clone/raw/main/docs/assets/nexting_show_1.mp4
+https://github.com/user-attachments/assets/248af639-20d9-45a8-ad0a-660a04a17b68
 
 </div>
 
