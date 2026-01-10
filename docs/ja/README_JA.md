@@ -65,18 +65,9 @@ https://github.com/user-attachments/assets/248af639-20d9-45a8-ad0a-660a04a17b68
 |---------------|------|-----------------|
 | **Agents** | 集中した責任を持つ専門AIワーカー | DOM、スタイル、コンポーネント、コードエージェント |
 | **Tools** | エージェントが呼び出せる機能 | ファイルI/O、ブラウザ自動化、API呼び出し |
-| **Sandbox** | 安全な実行環境 | BoxLite - 隔離されたNode.jsランタイム |
+| **Sandbox** | 安全な実行環境 | [BoxLite](https://github.com/boxlite-ai/boxlite) - 組み込みマイクロVMランタイム |
 
-### 自分で構築する
-
-アーキテクチャ全体がMITライセンスです。探索すべき主要ディレクトリ：
-
-```
-backend/
-├── agent/           # マルチエージェントオーケストレーションとプロンプト
-├── boxlite/         # サンドボックス実装
-├── extractor/       # ブラウザ自動化ツール
-```
+> **BoxLite**: AIエージェント向けのハードウェアレベル隔離マイクロVM。root権限不要、真のカーネル分離でOCIコンテナを実行。→ [github.com/boxlite-ai/boxlite](https://github.com/boxlite-ai/boxlite)
 
 ### お問い合わせ
 

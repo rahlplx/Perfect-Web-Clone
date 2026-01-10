@@ -65,18 +65,9 @@ This pattern — **Agent + Tools + Sandbox** — is reusable for any AI agent pr
 |-----------|---------|------------|
 | **Agents** | Specialized AI workers with focused responsibilities | DOM, Style, Component, Code agents |
 | **Tools** | Capabilities agents can invoke | File I/O, Browser automation, API calls |
-| **Sandbox** | Safe execution environment | BoxLite - isolated Node.js runtime |
+| **Sandbox** | Safe execution environment | [BoxLite](https://github.com/boxlite-ai/boxlite) - Embedded micro-VM runtime |
 
-### Build Your Own
-
-The entire architecture is MIT licensed. Key directories to explore:
-
-```
-backend/
-├── agent/           # Multi-agent orchestration & prompts
-├── boxlite/         # Sandbox implementation
-├── extractor/       # Browser automation tools
-```
+> **BoxLite**: Hardware-level isolated micro-VMs for AI agents. No root access needed, runs OCI containers with true kernel isolation. → [github.com/boxlite-ai/boxlite](https://github.com/boxlite-ai/boxlite)
 
 ### Connect With Me
 

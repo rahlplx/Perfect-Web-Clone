@@ -65,18 +65,9 @@ https://github.com/user-attachments/assets/248af639-20d9-45a8-ad0a-660a04a17b68
 |------|------|---------------|
 | **Agents** | 具有专注职责的专业 AI 工作者 | DOM、样式、组件、代码代理 |
 | **Tools** | 代理可以调用的能力 | 文件 I/O、浏览器自动化、API 调用 |
-| **Sandbox** | 安全的执行环境 | BoxLite - 隔离的 Node.js 运行时 |
+| **Sandbox** | 安全的执行环境 | [BoxLite](https://github.com/boxlite-ai/boxlite) - 嵌入式微型虚拟机运行时 |
 
-### 构建你自己的
-
-整个架构采用 MIT 许可证。值得探索的关键目录：
-
-```
-backend/
-├── agent/           # 多代理编排和提示词
-├── boxlite/         # 沙箱实现
-├── extractor/       # 浏览器自动化工具
-```
+> **BoxLite**: 为 AI Agent 设计的硬件级隔离微型虚拟机。无需 root 权限，运行 OCI 容器，真正的内核隔离。→ [github.com/boxlite-ai/boxlite](https://github.com/boxlite-ai/boxlite)
 
 ### 联系我
 
