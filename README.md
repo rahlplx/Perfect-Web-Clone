@@ -16,7 +16,9 @@ English | [中文](./docs/cn/README_CN.md) | [日本語](./docs/ja/README_JA.md)
 
 </div>
 
-Others guess from screenshots. We extract the **real code** — DOM, styles, components, interactions. Get pixel-perfect, maintainable output in seconds.
+**A true AI agent** — not just a wrapper around an LLM. Multi-agent collaboration with real tools, self-correction loops, and a complete sandbox environment to build production-ready code from scratch.
+
+Others guess from screenshots. We extract the **real code** — DOM, styles, components, interactions. **Pixel-perfect cloning** that screenshot-based tools simply cannot achieve.
 
 https://github.com/user-attachments/assets/248af639-20d9-45a8-ad0a-660a04a17b68
 
