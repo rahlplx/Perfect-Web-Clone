@@ -1060,19 +1060,94 @@ class BoxLiteSandboxManager:
         return await detector.quick_check()
 
     async def get_visual_summary(self) -> VisualSummary:
-        """Get visual summary of preview page"""
-        # Return current preview state info
+        """
+        Get visual summary of preview page using Playwright.
+
+        Takes a screenshot of the preview URL (localhost:8080) and extracts
+        page information like title and visible text.
+        """
+        preview_url = self.state.preview_url
+        screenshot_base64 = None
+        page_title = "Nexting Agent Project"
+        visible_text = None
+        error = None
+        visible_element_count = 0
+
+        if not preview_url:
+            return VisualSummary(
+                has_content=False,
+                visible_element_count=0,
+                text_preview="",
+                viewport={"width": 1280, "height": 720},
+                body_size={"width": 1280, "height": 720},
+                preview_url=None,
+                page_title=page_title,
+                visible_text=None,
+                screenshot_base64=None,
+                error="Preview server not started"
+            )
+
+        try:
+            from playwright.async_api import async_playwright
+            import base64
+
+            async with async_playwright() as p:
+                browser = await p.chromium.launch(headless=True)
+                context = await browser.new_context(
+                    viewport={"width": 1280, "height": 720}
+                )
+                page = await context.new_page()
+
+                try:
+                    # Navigate to preview URL
+                    await page.goto(preview_url, timeout=15000, wait_until='networkidle')
+
+                    # Get page title
+                    page_title = await page.title() or "Nexting Agent Project"
+
+                    # Get visible text (first 1000 chars)
+                    visible_text = await page.evaluate('''() => {
+                        return document.body?.innerText?.substring(0, 1000) || '';
+                    }''')
+
+                    # Count visible elements
+                    visible_element_count = await page.evaluate('''() => {
+                        return document.querySelectorAll('*').length;
+                    }''')
+
+                    # Take screenshot
+                    screenshot_bytes = await page.screenshot(
+                        type='png',
+                        full_page=False  # Just viewport
+                    )
+                    screenshot_base64 = base64.b64encode(screenshot_bytes).decode('utf-8')
+
+                    logger.info(f"[Sandbox] Screenshot captured: {len(screenshot_bytes)} bytes")
+
+                except Exception as e:
+                    error = f"Failed to capture screenshot: {str(e)}"
+                    logger.warning(f"[Sandbox] Screenshot error: {e}")
+
+                await browser.close()
+
+        except ImportError:
+            error = "Playwright not installed. Run: pip install playwright && playwright install chromium"
+            logger.warning("[Sandbox] Playwright not available for screenshots")
+        except Exception as e:
+            error = f"Screenshot failed: {str(e)}"
+            logger.error(f"[Sandbox] Screenshot error: {e}")
+
         return VisualSummary(
-            has_content=self.state.preview_url is not None,
-            visible_element_count=0,
-            text_preview="",
+            has_content=screenshot_base64 is not None,
+            visible_element_count=visible_element_count,
+            text_preview=visible_text[:200] if visible_text else "",
             viewport={"width": 1280, "height": 720},
             body_size={"width": 1280, "height": 720},
-            preview_url=self.state.preview_url,
-            page_title="Nexting Agent Project",
-            visible_text=None,
-            screenshot_base64=None,  # TODO: Implement Playwright screenshot
-            error=None
+            preview_url=preview_url,
+            page_title=page_title,
+            visible_text=visible_text,
+            screenshot_base64=screenshot_base64,
+            error=error
         )
 
     # ============================================

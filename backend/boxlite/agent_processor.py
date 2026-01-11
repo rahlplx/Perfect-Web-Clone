@@ -36,6 +36,9 @@ from .worker_manager import (
 from agent.memory_sdk import SDKMemoryManager, create_memory_manager
 from agent.prompts import get_system_prompt
 
+# Checkpoint module for auto-save
+from checkpoint import checkpoint_store
+
 # Sources data directory
 SOURCES_DIR = Path(__file__).parent.parent / "data" / "sources"
 
@@ -138,6 +141,13 @@ class BoxLiteAgentProcessor:
         self.iteration_count = 0
         self.is_running = False
         self.conversation_round = 0
+
+        # Checkpoint state for auto-save
+        self.current_project_id: Optional[str] = None
+        self.current_source_id: Optional[str] = None
+        self.current_source_url: Optional[str] = None
+        self.last_tool_name: Optional[str] = None
+        self.last_tool_result: Optional[Dict[str, Any]] = None
 
         logger.info(f"BoxLiteAgentProcessor initialized: sandbox={sandbox.sandbox_id}")
 
@@ -252,6 +262,11 @@ class BoxLiteAgentProcessor:
             source_data = self._load_source_data(selected_source_id)
             if source_data:
                 logger.info(f"[BoxLiteAgent] Loaded source: {source_data.get('page_title', 'Unknown')}")
+                # Store source info for checkpoint
+                self.current_source_id = selected_source_id
+                self.current_source_url = source_data.get("source_url")
+                # Get or create checkpoint project
+                self._ensure_checkpoint_project(source_data)
 
         try:
             # Add user message to memory
@@ -274,6 +289,16 @@ class BoxLiteAgentProcessor:
 
         finally:
             self.is_running = False
+
+            # Auto-save checkpoint if build has no errors
+            checkpoint_saved = await self._maybe_save_checkpoint()
+            if checkpoint_saved:
+                yield {
+                    "type": "checkpoint_saved",
+                    "project_id": self.current_project_id,
+                    "message": "Checkpoint saved automatically",
+                }
+
             yield {"type": "done"}
 
     def _build_system_prompt(self, source_data: Optional[Dict[str, Any]] = None) -> str:
@@ -282,7 +307,19 @@ class BoxLiteAgentProcessor:
         Args:
             source_data: Optional source data from selected Source
         """
+        from pathlib import Path
+
         base = get_system_prompt()
+
+        # Load CLAUDE.md tool architecture documentation
+        claude_md_path = Path(__file__).parent / "CLAUDE.md"
+        tool_architecture = ""
+        if claude_md_path.exists():
+            try:
+                tool_architecture = f"\n\n{claude_md_path.read_text()}\n"
+                logger.info("[BoxLiteAgent] Loaded CLAUDE.md tool architecture")
+            except Exception as e:
+                logger.warning(f"[BoxLiteAgent] Failed to load CLAUDE.md: {e}")
 
         # Add BoxLite-specific context
         sandbox_state = self.sandbox.get_state()
@@ -316,10 +353,12 @@ All tools execute directly on the backend - no frontend interaction needed:
 - reinstall_dependencies(clean_cache) - Fix corrupted node_modules
 
 **Diagnostics:**
-- verify_changes() - Check for errors
-- get_build_errors() - Get build errors
+- diagnose_preview_state() - **USE THIS FIRST** - Comprehensive diagnosis
+- verify_changes() - Check for errors after changes
+- get_build_errors(source) - Get detailed build errors (source: all/terminal/browser/static)
 - get_state() - Get sandbox state
-"""
+- take_screenshot() - Capture preview image for visual verification
+{tool_architecture}"""
 
         # Add source context if available
         source_context = ""
@@ -473,12 +512,62 @@ Use this data to:
                         self.memory.add_assistant_message(text_content)
 
                 # Check if should continue
-                if not has_tool_use:
-                    logger.info("[BoxLiteAgent] No tool calls, complete")
-                    break
+                if not has_tool_use or response.stop_reason == "end_turn":
+                    # =============================================
+                    # COMPLETION PRE-CHECK: Must have no errors!
+                    # =============================================
+                    # Before allowing completion, check for build errors
+                    # This prevents Agent from ending prematurely when there are issues
 
-                if response.stop_reason == "end_turn":
-                    logger.info("[BoxLiteAgent] End turn, complete")
+                    try:
+                        errors = await self.sandbox.get_build_errors(source="terminal")
+
+                        if errors:
+                            # Format error summary for Agent
+                            error_summary = []
+                            for i, err in enumerate(errors[:3], 1):
+                                loc = f"{err.file}:{err.line}" if err.file else "unknown"
+                                error_summary.append(f"{i}. [{err.type}] {loc}")
+                                error_summary.append(f"   {err.message[:200]}")
+                                if err.suggestion:
+                                    error_summary.append(f"   Fix: {err.suggestion}")
+
+                            if len(errors) > 3:
+                                error_summary.append(f"\n... and {len(errors) - 3} more errors")
+
+                            # Inject message forcing Agent to fix errors
+                            logger.warning(f"[BoxLiteAgent] Completion blocked: {len(errors)} build errors found")
+
+                            messages.append({
+                                "role": "user",
+                                "content": f"""⚠️ **STOP! Cannot complete yet - Build Errors Found**
+
+You attempted to finish, but there are still {len(errors)} build error(s) that MUST be fixed:
+
+{chr(10).join(error_summary)}
+
+**You MUST:**
+1. Fix these errors before completing
+2. Run `get_build_errors()` or `diagnose_preview_state()` after fixing to verify
+3. Only declare complete when there are NO errors
+
+Please fix these errors now."""
+                            })
+
+                            yield {
+                                "type": "completion_blocked",
+                                "reason": "build_errors",
+                                "error_count": len(errors),
+                            }
+
+                            # Continue the loop instead of breaking
+                            continue
+
+                    except Exception as e:
+                        logger.warning(f"[BoxLiteAgent] Error check failed: {e}")
+                        # If error check fails, allow completion to avoid infinite loop
+
+                    logger.info("[BoxLiteAgent] Completion check passed, no errors")
                     break
 
             except (anthropic.APIError, OpenAIAPIError) as e:
@@ -531,6 +620,14 @@ Use this data to:
 
             # Execute tool with sandbox
             result = await tool_fn(sandbox=self.sandbox, **tool_input)
+
+            # Track last tool for checkpoint auto-save
+            self.last_tool_name = tool_name
+            self.last_tool_result = {
+                "success": result.success,
+                "result": result.result,
+                "data": result.data,
+            }
 
             return {
                 "success": result.success,
@@ -816,6 +913,116 @@ Use this data to:
             content=content,
             stop_reason=choice.finish_reason,
         )
+
+    # ============================================
+    # Checkpoint Auto-Save
+    # ============================================
+
+    def _ensure_checkpoint_project(self, source_data: Dict[str, Any]):
+        """
+        Ensure checkpoint project exists for current source
+
+        Args:
+            source_data: Source data with page info
+        """
+        if self.current_project_id:
+            # Already have a project
+            return
+
+        # Try to find existing project for this source
+        source_id = self.current_source_id
+        if source_id:
+            for project in checkpoint_store.list_projects():
+                if project.source_id == source_id:
+                    self.current_project_id = project.id
+                    logger.info(f"[BoxLiteAgent] Using existing checkpoint project: {project.id}")
+                    return
+
+        # Create new project
+        page_title = source_data.get("page_title", "Unknown")
+        source_url = source_data.get("source_url", "")
+
+        # Generate project name from page title
+        project_name = page_title[:50] if page_title else "Untitled Project"
+
+        project = checkpoint_store.create_project(
+            name=project_name,
+            description=f"Cloned from {source_url}",
+            source_id=source_id,
+            source_url=source_url,
+            is_showcase=False,  # User projects are not showcases by default
+        )
+
+        self.current_project_id = project.id
+        logger.info(f"[BoxLiteAgent] Created checkpoint project: {project.id}")
+
+    async def _maybe_save_checkpoint(self) -> bool:
+        """
+        Check if should save checkpoint and do it
+
+        Auto-save when:
+        - We have a project
+        - Task completed successfully (no build errors)
+
+        This is called at the end of process_message, after the agent loop
+        has completed. If the agent reached here, it means the completion
+        check passed (no blocking errors).
+
+        Returns:
+            True if checkpoint was saved
+        """
+        # Must have a project
+        if not self.current_project_id:
+            logger.info("[BoxLiteAgent] No project, skipping checkpoint")
+            return False
+
+        # Double-check for build errors before saving
+        # This is a safety check - the completion check should have already passed
+        try:
+            errors = await self.sandbox.get_build_errors(source="terminal")
+            if errors:
+                logger.info(f"[BoxLiteAgent] Build has {len(errors)} errors, skipping checkpoint")
+                return False
+        except Exception as e:
+            logger.warning(f"[BoxLiteAgent] Error check failed: {e}, proceeding with save")
+            # If error check fails, still try to save - better to have checkpoint than not
+
+        # All checks passed - save checkpoint!
+        try:
+            # Collect conversation
+            conversation = self.memory.get_messages_for_api()
+
+            # Collect files from sandbox
+            sandbox_state = self.sandbox.get_state()
+            files = {}
+            for path, content in sandbox_state.files.items():
+                if isinstance(content, str):
+                    files[path] = content
+
+            # Generate checkpoint name
+            checkpoint_name = f"Round {self.conversation_round} - Build OK"
+
+            # Save checkpoint
+            checkpoint = checkpoint_store.save_checkpoint(
+                project_id=self.current_project_id,
+                name=checkpoint_name,
+                conversation=conversation,
+                files=files,
+                metadata={
+                    "round": self.conversation_round,
+                    "iteration": self.iteration_count,
+                    "last_tool": self.last_tool_name,
+                },
+            )
+
+            if checkpoint:
+                logger.info(f"[BoxLiteAgent] Auto-saved checkpoint: {checkpoint.id}")
+                return True
+
+        except Exception as e:
+            logger.error(f"[BoxLiteAgent] Failed to save checkpoint: {e}", exc_info=True)
+
+        return False
 
 
 # ============================================

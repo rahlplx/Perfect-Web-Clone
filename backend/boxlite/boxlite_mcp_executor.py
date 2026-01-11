@@ -14,8 +14,10 @@ import asyncio
 import logging
 import os
 import json
+import re
 from typing import Dict, Any, Optional, List, TYPE_CHECKING
 from pathlib import Path
+from urllib.parse import urljoin, urlparse
 
 # Import from original agent tools for consistency
 from agent.mcp_tools import (
@@ -80,6 +82,7 @@ class BoxLiteMCPExecutor:
         self._last_integration_plan = None
         self._last_worker_results: Dict[str, Dict[str, Any]] = {}
         self._last_source_id: str = ""
+        self._last_source_url: str = ""  # For workers to resolve relative URLs
 
         # Storage for original CSS from source (Solution D)
         self._original_css: str = ""
@@ -88,6 +91,117 @@ class BoxLiteMCPExecutor:
         self._section_executor = None
 
         logger.info(f"BoxLiteMCPExecutor initialized: session={session_id}")
+
+    def _resolve_urls_in_html(self, html: str, base_url: str) -> str:
+        """
+        Convert all relative URLs in HTML to absolute URLs.
+
+        This pre-processes HTML before sending to workers to ensure
+        all image src, link href, and background-image URLs are absolute.
+
+        Args:
+            html: Raw HTML content
+            base_url: Base URL for resolving relative paths (e.g., "https://example.com")
+
+        Returns:
+            HTML with all relative URLs converted to absolute URLs
+        """
+        if not base_url or not html:
+            return html
+
+        # Ensure base_url has no trailing slash
+        base_url = base_url.rstrip("/")
+
+        def resolve_url(match):
+            """Resolve a single URL match"""
+            prefix = match.group(1)  # e.g., 'src="' or 'href="'
+            url = match.group(2)     # The URL value
+            suffix = match.group(3)  # Closing quote
+
+            # Skip data: URLs, javascript:, mailto:, tel:, #anchors
+            if url.startswith(('data:', 'javascript:', 'mailto:', 'tel:', '#', '{', '$')):
+                return match.group(0)
+
+            # Skip already absolute URLs
+            if url.startswith(('http://', 'https://')):
+                return match.group(0)
+
+            # Protocol-relative URLs (//example.com/...)
+            if url.startswith('//'):
+                resolved = f"https:{url}"
+            # Root-relative URLs (/path/to/resource)
+            elif url.startswith('/'):
+                # Extract origin from base_url
+                parsed = urlparse(base_url)
+                origin = f"{parsed.scheme}://{parsed.netloc}"
+                resolved = f"{origin}{url}"
+            # Relative URLs (./path or path)
+            else:
+                resolved = urljoin(base_url + "/", url)
+
+            return f"{prefix}{resolved}{suffix}"
+
+        # Pattern to match src="...", href="...", url(...)
+        # Handles both single and double quotes
+        patterns = [
+            # src="..." and src='...'
+            (r'(src=["\'])([^"\']+)(["\'])', resolve_url),
+            # href="..." and href='...'
+            (r'(href=["\'])([^"\']+)(["\'])', resolve_url),
+            # srcset="..." (multiple URLs separated by comma)
+            # This needs special handling
+            # poster="..." for video
+            (r'(poster=["\'])([^"\']+)(["\'])', resolve_url),
+            # data-src="..." for lazy loading
+            (r'(data-src=["\'])([^"\']+)(["\'])', resolve_url),
+            # background-image: url(...) in inline styles
+            (r'(url\(["\']?)([^"\')\s]+)(["\']?\))', resolve_url),
+        ]
+
+        result = html
+        for pattern, handler in patterns:
+            result = re.sub(pattern, handler, result, flags=re.IGNORECASE)
+
+        # Handle srcset separately (contains multiple URLs)
+        def resolve_srcset(match):
+            prefix = match.group(1)
+            srcset_value = match.group(2)
+            suffix = match.group(3)
+
+            resolved_parts = []
+            for part in srcset_value.split(','):
+                part = part.strip()
+                if not part:
+                    continue
+                # srcset format: "url size" e.g., "/img.jpg 2x" or "/img.jpg 300w"
+                parts = part.split()
+                if parts:
+                    url = parts[0]
+                    descriptor = ' '.join(parts[1:]) if len(parts) > 1 else ''
+
+                    # Resolve the URL
+                    if not url.startswith(('data:', 'http://', 'https://')):
+                        if url.startswith('//'):
+                            url = f"https:{url}"
+                        elif url.startswith('/'):
+                            parsed = urlparse(base_url)
+                            origin = f"{parsed.scheme}://{parsed.netloc}"
+                            url = f"{origin}{url}"
+                        else:
+                            url = urljoin(base_url + "/", url)
+
+                    resolved_parts.append(f"{url} {descriptor}".strip())
+
+            return f"{prefix}{', '.join(resolved_parts)}{suffix}"
+
+        result = re.sub(
+            r'(srcset=["\'])([^"\']+)(["\'])',
+            resolve_srcset,
+            result,
+            flags=re.IGNORECASE
+        )
+
+        return result
 
     def _get_section_executor(self):
         """Get or create section tool executor"""
@@ -951,29 +1065,93 @@ class BoxLiteMCPExecutor:
             return ("\n".join(lines), False)
 
     async def _execute_diagnose_preview_state(self, input: Dict[str, Any]) -> tuple:
-        """Diagnose preview state"""
+        """
+        Comprehensive preview state diagnosis.
+
+        Checks:
+        1. Preview server status
+        2. Build errors (from terminal + browser + static analysis)
+        3. Page content info
+        4. Actionable recommendations
+        """
         summary = await self.sandbox.get_visual_summary()
-        errors = await self.sandbox.get_build_errors()
+        # Use "all" source to get comprehensive error detection
+        errors = await self.sandbox.get_build_errors(source="all")
 
         lines = ["## Preview Diagnostic Report\n"]
 
-        # Preview status
+        # 1. Preview status
+        lines.append("### 1. Server Status")
         if summary.preview_url:
             lines.append(f"✅ Preview URL: {summary.preview_url}")
         else:
-            lines.append("❌ Preview not available")
+            lines.append("❌ Preview server not started")
+            lines.append("   → Run: `shell('npm run dev', background=true)`")
 
-        # Build errors
+        # 2. Build errors - DETAILED output with suggestions
+        lines.append("\n### 2. Build Errors")
         if errors:
-            lines.append(f"\n### Build Errors ({len(errors)}):")
-            for error in errors[:5]:
-                lines.append(f"  - {error.file}:{error.line}: {error.message}")
-        else:
-            lines.append("\n✅ No build errors")
+            lines.append(f"❌ **{len(errors)} error(s) found - MUST FIX before completing!**\n")
 
-        # Page content
+            for i, error in enumerate(errors[:5], 1):
+                lines.append(f"**Error {i}: {error.type}**")
+
+                # Source layer
+                lines.append(f"- Source: {error.source.value}")
+
+                # Location (handle None values)
+                if error.file:
+                    location = error.file
+                    if error.line:
+                        location += f":{error.line}"
+                        if error.column:
+                            location += f":{error.column}"
+                    lines.append(f"- Location: `{location}`")
+
+                # Message
+                lines.append(f"- Message: {error.message[:300]}")
+
+                # Code frame (if available)
+                if error.frame:
+                    lines.append(f"- Code:\n```\n{error.frame[:200]}\n```")
+
+                # CRITICAL: Suggestion for fixing
+                if error.suggestion:
+                    lines.append(f"- **FIX**: {error.suggestion}")
+                else:
+                    # Generate generic suggestion based on error type
+                    lines.append(f"- **FIX**: Analyze the error and fix the issue in the file")
+
+                lines.append("")  # Empty line between errors
+
+            if len(errors) > 5:
+                lines.append(f"... and {len(errors) - 5} more errors. Use `get_build_errors()` for full list.")
+        else:
+            lines.append("✅ No build errors detected")
+
+        # 3. Page content
+        lines.append("\n### 3. Page Content")
         if summary.page_title:
-            lines.append(f"\n### Page Title: {summary.page_title}")
+            lines.append(f"- Title: {summary.page_title}")
+        if summary.visible_element_count:
+            lines.append(f"- Elements: {summary.visible_element_count}")
+        if summary.text_preview:
+            lines.append(f"- Text preview: {summary.text_preview[:100]}...")
+        if summary.error:
+            lines.append(f"- ⚠️ Warning: {summary.error}")
+
+        # 4. Action recommendations
+        lines.append("\n### 4. Recommended Actions")
+        if errors:
+            lines.append("1. **FIX ALL ERRORS ABOVE** - You cannot complete until errors are resolved")
+            lines.append("2. After fixing, run `diagnose_preview_state()` again to verify")
+            lines.append("3. Once no errors, run `take_screenshot()` to verify visual appearance")
+        elif not summary.preview_url:
+            lines.append("1. Start dev server: `shell('npm run dev', background=true)`")
+            lines.append("2. Wait a few seconds, then run `diagnose_preview_state()` again")
+        else:
+            lines.append("✅ All checks passed!")
+            lines.append("→ Run `take_screenshot()` to verify visual appearance")
 
         return ("\n".join(lines), False)
 
@@ -1022,6 +1200,7 @@ class BoxLiteMCPExecutor:
             raw_json = source_data.get("data", source_data.get("raw_json", {}))
             page_title = source_data.get("page_title", "Unknown")
             source_url = source_data.get("source_url", "")
+            self._last_source_url = source_url  # Store for spawn_section_workers
 
             # Get DOM tree and metadata
             dom_tree = raw_json.get("dom_tree")
@@ -1114,8 +1293,28 @@ class BoxLiteMCPExecutor:
                     original_css_parts.append(css_rules)
 
             # Store the combined original CSS
-            self._original_css = "\n".join(original_css_parts)
+            original_css_raw = "\n".join(original_css_parts)
+
+            # ========================================
+            # Also resolve URLs in CSS (background-image, fonts, etc.)
+            # ========================================
+            if original_css_raw and self._last_source_url:
+                parsed = urlparse(self._last_source_url)
+                css_base_url = f"{parsed.scheme}://{parsed.netloc}"
+                self._original_css = self._resolve_urls_in_html(original_css_raw, css_base_url)
+                if self._original_css != original_css_raw:
+                    logger.info(f"[get_layout] Resolved URLs in original CSS")
+            else:
+                self._original_css = original_css_raw
+
             logger.info(f"[get_layout] Extracted original CSS: {len(self._original_css)} chars")
+
+            # Get base URL for resolving relative URLs
+            base_url = ""
+            if self._last_source_url:
+                parsed = urlparse(self._last_source_url)
+                base_url = f"{parsed.scheme}://{parsed.netloc}"
+            logger.info(f"[get_layout] Base URL for URL resolution: {base_url}")
 
             for i, html_section in enumerate(html_sections_list):
                 section_id = html_section.get("id", f"section-{i}")
@@ -1124,11 +1323,73 @@ class BoxLiteMCPExecutor:
                 section_name = original_name.lower().replace(" ", "_")
 
                 # Get section data
-                images = html_section.get("images", [])
-                links = html_section.get("links", [])
-                section_html = html_section.get("raw_html", "")
+                images_raw = html_section.get("images", [])
+                links_raw = html_section.get("links", [])
+
+                # Resolve URLs in images array
+                images = []
+                for img in images_raw:
+                    if isinstance(img, dict):
+                        resolved_img = img.copy()
+                        if "src" in resolved_img and resolved_img["src"]:
+                            src = resolved_img["src"]
+                            if not src.startswith(('http://', 'https://', 'data:')):
+                                if src.startswith('//'):
+                                    resolved_img["src"] = f"https:{src}"
+                                elif src.startswith('/'):
+                                    resolved_img["src"] = f"{base_url}{src}"
+                                else:
+                                    resolved_img["src"] = f"{base_url}/{src}"
+                        images.append(resolved_img)
+                    elif isinstance(img, str):
+                        # Simple URL string
+                        if not img.startswith(('http://', 'https://', 'data:')):
+                            if img.startswith('//'):
+                                images.append(f"https:{img}")
+                            elif img.startswith('/'):
+                                images.append(f"{base_url}{img}")
+                            else:
+                                images.append(f"{base_url}/{img}")
+                        else:
+                            images.append(img)
+
+                # Resolve URLs in links array
+                links = []
+                for link in links_raw:
+                    if isinstance(link, dict):
+                        resolved_link = link.copy()
+                        if "href" in resolved_link and resolved_link["href"]:
+                            href = resolved_link["href"]
+                            if not href.startswith(('http://', 'https://', 'mailto:', 'tel:', '#', 'javascript:')):
+                                if href.startswith('//'):
+                                    resolved_link["href"] = f"https:{href}"
+                                elif href.startswith('/'):
+                                    resolved_link["href"] = f"{base_url}{href}"
+                                else:
+                                    resolved_link["href"] = f"{base_url}/{href}"
+                        links.append(resolved_link)
+                    elif isinstance(link, str):
+                        # Simple URL string
+                        if not link.startswith(('http://', 'https://', 'mailto:', 'tel:', '#', 'javascript:')):
+                            if link.startswith('//'):
+                                links.append(f"https:{link}")
+                            elif link.startswith('/'):
+                                links.append(f"{base_url}{link}")
+                            else:
+                                links.append(f"{base_url}/{link}")
+                        else:
+                            links.append(link)
+                section_html_raw = html_section.get("raw_html", "")
                 html_range = html_section.get("html_range", {})
                 layout_info = html_section.get("layout_info", {})
+
+                # ========================================
+                # CRITICAL: Convert relative URLs to absolute URLs
+                # This ensures images and links work correctly in the clone
+                # ========================================
+                section_html = self._resolve_urls_in_html(section_html_raw, base_url)
+                if section_html_raw and section_html != section_html_raw:
+                    logger.info(f"[get_layout] Section {section_name}: Resolved URLs in HTML")
 
                 rect = {
                     "x": layout_info.get("x", 0),
@@ -1376,6 +1637,7 @@ class BoxLiteMCPExecutor:
                     "section_data": section_data,
                     "task_contract": task_contract,
                     "source_id": source_id,
+                    "source_url": self._last_source_url,  # For resolving relative URLs
                 },
                 target_files=section_cfg.get("target_files", []),
                 display_name=display_name,

@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { Bot, Database, Settings } from "lucide-react";
+import { Bot, Database, Settings, History } from "lucide-react";
 
 /**
  * Project Header Props
@@ -14,6 +14,8 @@ interface ProjectHeaderProps {
   onToggleChatPanel: () => void;
   showSourcePanel: boolean;
   onToggleSourcePanel: () => void;
+  showCheckpointPanel: boolean;
+  onToggleCheckpointPanel: () => void;
   status?: "idle" | "ready" | "booting" | "error";
 }
 
@@ -28,6 +30,8 @@ export function ProjectHeader({
   onToggleChatPanel,
   showSourcePanel,
   onToggleSourcePanel,
+  showCheckpointPanel,
+  onToggleCheckpointPanel,
   status = "idle",
 }: ProjectHeaderProps) {
   const [isEditing, setIsEditing] = useState(false);
@@ -137,6 +141,20 @@ export function ProjectHeader({
         >
           <Database className="h-4 w-4" />
           Sources
+        </button>
+
+        {/* Toggle Checkpoint Panel */}
+        <button
+          onClick={onToggleCheckpointPanel}
+          className={cn(
+            "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors",
+            showCheckpointPanel
+              ? "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-400"
+              : "text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          )}
+        >
+          <History className="h-4 w-4" />
+          Checkpoints
         </button>
 
         {/* Toggle Chat Panel */}

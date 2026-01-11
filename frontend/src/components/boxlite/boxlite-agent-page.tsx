@@ -1,12 +1,15 @@
 "use client";
 
 import React, { useState, useCallback, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { RefreshCw } from "lucide-react";
+import { getSource } from "@/lib/api/sources";
 import { cn } from "@/lib/utils";
 import { useBoxLite } from "@/hooks/use-boxlite";
 import { BoxLiteIDE } from "./boxlite-ide";
 import { ProjectHeader } from "./project-header";
 import { SourcePanel, type SavedSource } from "./source-panel";
+import { CheckpointPanel } from "./checkpoint-panel";
 import { AppSidebar } from "@/components/app-sidebar";
 import { NextingAgentChatPanel } from "@/components/agent/chat-panel";
 import type { ChatMessage } from "@/types/agent";
@@ -28,6 +31,12 @@ interface SelectedSource {
 // ============================================
 
 export function BoxLiteAgentPage() {
+  // URL params for auto-clone flow
+  const searchParams = useSearchParams();
+  const sourceIdParam = searchParams.get("source");
+  const themeParam = searchParams.get("theme") as "light" | "dark" | null;
+  const autoCloneParam = searchParams.get("autoClone") === "true";
+
   // Sandbox hook (BoxLite infra)
   const {
     state,
@@ -61,9 +70,14 @@ export function BoxLiteAgentPage() {
   const [chatPanelWidth, setChatPanelWidth] = useState(380);
   const [showChatPanel, setShowChatPanel] = useState(true);
   const [showSourcePanel, setShowSourcePanel] = useState(false);
+  const [showCheckpointPanel, setShowCheckpointPanel] = useState(false);
   const [projectName, setProjectName] = useState("Untitled Project");
   const [selectedSource, setSelectedSource] = useState<SelectedSource | null>(null);
   const [isAgentLoading, setIsAgentLoading] = useState(false);
+
+  // Auto-clone flow state
+  const [autoCloneTriggered, setAutoCloneTriggered] = useState(false);
+  const [shouldAutoSend, setShouldAutoSend] = useState(false);
 
   // Resizer state
   const [isResizing, setIsResizing] = useState(false);
@@ -177,6 +191,49 @@ export function BoxLiteAgentPage() {
     };
   }, [isResizing]);
 
+  // Auto-clone flow: fetch source from URL param and trigger auto-send
+  useEffect(() => {
+    if (!sourceIdParam || autoCloneTriggered || !isInitialized) return;
+
+    const loadSourceAndTriggerClone = async () => {
+      try {
+        console.log("[AutoClone] Loading source:", sourceIdParam);
+        const result = await getSource(sourceIdParam);
+
+        if (result.success && result.source) {
+          const source = result.source;
+          // Auto-select the source
+          setSelectedSource({
+            id: source.id,
+            title: source.page_title || "Untitled",
+            url: source.source_url,
+            theme: themeParam || source.metadata?.theme || "light",
+          });
+
+          // Open source panel to show selection
+          setShowSourcePanel(true);
+
+          // If autoClone is true, trigger auto-send after source is selected
+          if (autoCloneParam) {
+            console.log("[AutoClone] Will auto-send message");
+            // Small delay to ensure source is set before sending
+            setTimeout(() => {
+              setShouldAutoSend(true);
+            }, 500);
+          }
+        } else {
+          console.error("[AutoClone] Failed to load source:", result.error);
+        }
+      } catch (err) {
+        console.error("[AutoClone] Error loading source:", err);
+      }
+
+      setAutoCloneTriggered(true);
+    };
+
+    loadSourceAndTriggerClone();
+  }, [sourceIdParam, themeParam, autoCloneParam, autoCloneTriggered, isInitialized]);
+
   // Show loading state
   if (!isInitialized) {
     return (
@@ -216,6 +273,8 @@ export function BoxLiteAgentPage() {
           onToggleChatPanel={() => setShowChatPanel(!showChatPanel)}
           showSourcePanel={showSourcePanel}
           onToggleSourcePanel={() => setShowSourcePanel(!showSourcePanel)}
+          showCheckpointPanel={showCheckpointPanel}
+          onToggleCheckpointPanel={() => setShowCheckpointPanel(!showCheckpointPanel)}
           status={getStatus()}
         />
 
@@ -242,6 +301,8 @@ export function BoxLiteAgentPage() {
                 onClearSource={() => setSelectedSource(null)}
                 onLoadingChange={setIsAgentLoading}
                 onProjectNameGenerated={setProjectName}
+                shouldAutoSend={shouldAutoSend}
+                onAutoSendComplete={() => setShouldAutoSend(false)}
               />
             ) : (
               <div className="h-full flex items-center justify-center bg-neutral-50 dark:bg-neutral-900 text-neutral-500">
@@ -312,6 +373,25 @@ export function BoxLiteAgentPage() {
                   selectedSourceId={selectedSource?.id}
                   disabled={isAgentLoading}
                   onSelectSource={handleSelectSource}
+                />
+              </div>
+            </>
+          )}
+
+          {/* Checkpoint Panel (Right) */}
+          {showCheckpointPanel && (
+            <>
+              {/* Divider */}
+              <div
+                className={cn(
+                  "flex-shrink-0 w-px",
+                  "bg-neutral-200 dark:bg-neutral-700"
+                )}
+              />
+              <div className="flex-shrink-0 w-72 overflow-hidden">
+                <CheckpointPanel
+                  projectId={state?.sandbox_id}
+                  disabled={isAgentLoading}
                 />
               </div>
             </>
