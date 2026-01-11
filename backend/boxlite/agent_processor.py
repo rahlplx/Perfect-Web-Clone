@@ -489,12 +489,21 @@ Use this data to:
                             "role": "assistant",
                             "content": assistant_content,
                         })
+
+                        # Format tool result content for API
+                        # If result is an image object, wrap it in a list (content blocks)
+                        # This is required for Bedrock API compatibility
+                        result_content = tool_result["result"]
+                        if isinstance(result_content, dict) and result_content.get("type") == "image":
+                            # Image content - wrap in list as content blocks
+                            result_content = [result_content]
+
                         messages.append({
                             "role": "user",
                             "content": [{
                                 "type": "tool_result",
                                 "tool_use_id": block.id,
-                                "content": tool_result["result"],
+                                "content": result_content,
                                 "is_error": not tool_result["success"],
                             }],
                         })
