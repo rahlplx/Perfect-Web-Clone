@@ -32,3 +32,8 @@ Thumbs.db
 # BoxLite sandbox data (runtime)
 /tmp/
 boxlite-sandboxes/
+
+# User data (sources, checkpoints) - DO NOT commit
+backend/data/sources/
+backend/data/checkpoints/
+backend/checkpoint/data/
