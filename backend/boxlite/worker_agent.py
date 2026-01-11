@@ -603,6 +603,8 @@ Simply use them exactly as they appear in the HTML - no conversion needed.
 
 If you see interactive elements (modals, dropdowns, accordions, mobile menus, etc.), you may add `useState` to make them functional. For modals/popups, default to hidden state so they don't block content.
 
+**CRITICAL**: If a component can be closed (modal, popup, banner, notification, etc.), it MUST have working close functionality. Look for close buttons (×, X, close icons) and add `onClick` handlers. A closeable element that cannot be closed is broken.
+
 ## 🛠️ YOUR TOOL
 
 **write_code(path, content)**: Write your React component. This auto-completes the task.
