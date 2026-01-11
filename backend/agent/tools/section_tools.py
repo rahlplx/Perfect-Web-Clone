@@ -426,7 +426,7 @@ class SectionToolExecutor:
 
             # Error recovery info
             "failed_sections": error_sections if has_errors else [],
-            "recovery_hint": f"Failed sections: {', '.join(error_sections)}. Consider retrying with spawn_section_workers for these sections." if has_errors else None,
+            "recovery_hint": f"Failed sections: {', '.join(error_sections)}. Use read_file and edit_file to fix errors. Do NOT re-spawn workers." if has_errors else None,
         }
 
     async def _get_section_data(self, input_data: Dict[str, Any]) -> Dict[str, Any]:

@@ -103,10 +103,18 @@ Step 3: get_build_errors()
 Step 4: Done!
 ```
 
+**⚠️ IMPORTANT: About spawn_section_workers**
+- This tool is for distributing large Source data to multiple Workers in parallel
+- **Call it ONLY ONCE per project** — the workflow runs once and that's it
+- If Workers generate code with errors, fix them using `read_file` + `edit_file`
+- **DO NOT re-spawn workers to fix errors** — that would overwrite previous work
+- Think of it as: spawn once → then maintain with normal tools
+
 **After spawn_section_workers completes:**
 - You CAN edit Worker-generated files if there are errors
 - You CAN add new components or modify App.jsx
 - You CAN make any changes the user requests
+- Use `read_file` and `edit_file` for all fixes — NOT re-spawning
 
 ## Project Structure
 
