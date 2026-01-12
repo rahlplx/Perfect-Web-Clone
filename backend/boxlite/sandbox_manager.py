@@ -473,10 +473,17 @@ class BoxLiteSandboxManager:
 
     async def write_file(self, path: str, content: str) -> bool:
         """Write content to a file"""
+        import threading
         try:
             # Normalize path
             normalized = path.lstrip("/")
             file_path = self.work_dir / normalized
+
+            # DEBUG: Log write operation with thread info
+            thread_id = threading.current_thread().ident
+            content_preview = content[:100].replace('\n', ' ') if content else "(empty)"
+            logger.info(f"[write_file] Thread {thread_id}: Writing {path} ({len(content)} chars)")
+            logger.debug(f"[write_file] Content preview: {content_preview}...")
 
             # Create parent directories
             file_path.parent.mkdir(parents=True, exist_ok=True)
@@ -489,7 +496,7 @@ class BoxLiteSandboxManager:
             self.state.files[state_path] = content
             self.state.updated_at = datetime.now()
 
-            logger.debug(f"Wrote file: {path}")
+            logger.info(f"[write_file] ✓ Wrote {path} ({len(content)} chars)")
             return True
 
         except Exception as e:

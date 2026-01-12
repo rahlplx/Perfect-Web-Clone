@@ -362,7 +362,10 @@ class BoxLiteWorkerAgent:
         images = section_data.get("images", [])
         links = section_data.get("links", [])
 
+        # DEBUG: Log HTML fingerprint to detect if workers receive duplicate data
+        html_fingerprint = raw_html[:80].replace('\n', ' ') if raw_html else "(empty)"
         logger.info(f"[Worker {self.worker_id}] Starting with: HTML={len(raw_html)} chars, images={len(images)}, links={len(links)}")
+        logger.info(f"[Worker {self.worker_id}] HTML fingerprint: {html_fingerprint}...")
 
         if not self.config.context_data:
             logger.warning(f"Worker {self.worker_id}: No context data provided")
