@@ -1625,10 +1625,6 @@ class BoxLiteMCPExecutor:
         tasks = []
         logger.info(f"[spawn_section_workers] Building {len(self._last_layout_sections)} tasks from layout sections")
 
-        # CRITICAL: Track seen HTML to skip duplicates
-        seen_html_fingerprints = {}
-        skipped_duplicates = []
-
         for i, section_cfg in enumerate(self._last_layout_sections):
             # Use section_name as the primary identifier
             section_name = section_cfg.get("section_name", f"section_{i}")
@@ -1638,27 +1634,11 @@ class BoxLiteMCPExecutor:
             task_contract = section_cfg.get("_task_contract", {})
             section_data = section_cfg.get("_section_data", {})
 
-            # DEBUG: Log section data size and fingerprint
+            # Log section data
             raw_html = section_data.get("raw_html", "")
-            html_fingerprint = raw_html[:500] if raw_html else ""
-            logger.info(f"[spawn_section_workers] Task {i}: {section_name}")
-            logger.info(f"  - HTML length: {len(raw_html)} chars")
-            logger.info(f"  - HTML fingerprint: {html_fingerprint[:100].replace(chr(10), ' ')}...")
-
-            # Skip empty HTML
+            logger.info(f"[spawn_section_workers] Task {i}: {section_name}, HTML={len(raw_html)} chars")
             if len(raw_html) == 0:
-                logger.error(f"[spawn_section_workers] ⚠️ Task {section_name} has NO HTML! Skipping.")
-                skipped_duplicates.append(f"{section_name} (empty)")
-                continue
-
-            # CRITICAL: Skip duplicate HTML content
-            if html_fingerprint in seen_html_fingerprints:
-                original_section = seen_html_fingerprints[html_fingerprint]
-                logger.warning(f"[spawn_section_workers] ⚠️ DUPLICATE HTML! {section_name} same as {original_section}, skipping.")
-                skipped_duplicates.append(f"{section_name} (duplicate of {original_section})")
-                continue
-
-            seen_html_fingerprints[html_fingerprint] = section_name
+                logger.error(f"[spawn_section_workers] ⚠️ Task {section_name} has NO HTML!")
 
             # Build task description from TaskContract if available
             if task_contract:
@@ -1684,10 +1664,7 @@ class BoxLiteMCPExecutor:
             )
             tasks.append(task)
 
-        # Log summary
-        if skipped_duplicates:
-            logger.warning(f"[spawn_section_workers] Skipped {len(skipped_duplicates)} duplicate/empty sections: {skipped_duplicates}")
-        logger.info(f"[spawn_section_workers] Spawning {len(tasks)} workers (skipped {len(skipped_duplicates)} duplicates)")
+        logger.info(f"[spawn_section_workers] Spawning {len(tasks)} workers")
 
         # Run workers
         try:
@@ -1994,12 +1971,6 @@ a {
             if result.failed_workers == 0 and len(write_errors) == 0:
                 lines.append("### ✅ All Workers Completed Successfully!")
                 lines.append("")
-                # Show skipped duplicates if any
-                if skipped_duplicates:
-                    lines.append(f"**⚠️ Skipped {len(skipped_duplicates)} duplicate/empty sections:**")
-                    for skip_info in skipped_duplicates:
-                        lines.append(f"- {skip_info}")
-                    lines.append("")
                 lines.append("**Auto-generated files:**")
                 lines.append("- `/src/App.jsx` - Basic layout (needs arrangement)")
                 lines.append("- `/src/index.css` - Global styles (imports original.css)")

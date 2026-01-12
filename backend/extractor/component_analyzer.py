@@ -851,7 +851,9 @@ class ComponentAnalyzer:
                 html_content = ""
                 cleaned_html = ""
                 if not section.get('is_gap') and section['selector']:
-                    html_content = await self._get_section_html(section['selector'])
+                    # Pass rect to distinguish elements with same selector
+                    section_rect = section.get('rect', {})
+                    html_content = await self._get_section_html(section['selector'], section_rect)
                     # 清理 HTML：移除 base64 图片、SVG、超长样式等
                     cleaned_html = clean_html_for_tokens(html_content)
 
@@ -1057,16 +1059,54 @@ class ComponentAnalyzer:
         text_before = self.raw_html[:char_pos]
         return text_before.count('\n') + 1
 
-    async def _get_section_html(self, selector: str) -> str:
+    async def _get_section_html(self, selector: str, rect: dict = None) -> str:
         """
         获取Section的HTML内容
 
         多策略获取：
-        1. 使用 querySelector 精确选择
-        2. 尝试模糊匹配（只用标签和第一个class）
-        3. 尝试用ID选择
+        1. 使用 querySelectorAll + rect 位置匹配（处理相同selector的多个元素）
+        2. 回退到 querySelector 精确选择
+        3. 尝试模糊匹配（只用标签和第一个class）
         """
-        # 策略1: 精确选择器
+        # 策略1: 使用 querySelectorAll + rect 位置匹配
+        if rect and rect.get('y') is not None:
+            try:
+                html = await self.page.evaluate('''
+                    (params) => {
+                        try {
+                            const { selector, targetY, tolerance } = params;
+                            const elements = document.querySelectorAll(selector);
+                            if (elements.length === 0) return '';
+                            if (elements.length === 1) return elements[0].outerHTML;
+
+                            // Find element closest to target Y position
+                            let bestMatch = null;
+                            let bestDistance = Infinity;
+
+                            for (const el of elements) {
+                                const rect = el.getBoundingClientRect();
+                                const scrollY = window.scrollY || document.documentElement.scrollTop;
+                                const elY = rect.top + scrollY;
+                                const distance = Math.abs(elY - targetY);
+
+                                if (distance < bestDistance) {
+                                    bestDistance = distance;
+                                    bestMatch = el;
+                                }
+                            }
+
+                            return bestMatch ? bestMatch.outerHTML : '';
+                        } catch (e) {
+                            return '';
+                        }
+                    }
+                ''', {"selector": selector, "targetY": rect.get('y', 0), "tolerance": 50})
+                if html:
+                    return html
+            except:
+                pass
+
+        # 策略2: 精确选择器（回退）
         try:
             html = await self.page.evaluate('''
                 (selector) => {
@@ -1083,7 +1123,7 @@ class ComponentAnalyzer:
         except:
             pass
 
-        # 策略2: 解析选择器，尝试简化版本
+        # 策略3: 解析选择器，尝试简化版本
         try:
             # 尝试用更简单的选择器
             simplified_selectors = self._generate_fallback_selectors(selector)
