@@ -1485,11 +1485,13 @@ class BoxLiteMCPExecutor:
                 # Get section data for logging
                 section_data = cfg.get("_section_data", {})
                 raw_html_len = len(section_data.get("raw_html", ""))
+                rect = section_data.get("rect", {})
 
                 lines.append(f"**{i}. {cfg['display_name']}** (type: {cfg['section_type']})")
                 lines.append(f"   - ID: `{cfg['section_id']}`")
-                lines.append(f"   - HTML: {raw_html_len} chars")  # Show HTML size
-                lines.append(f"   - Files: {cfg['target_files']}")
+                lines.append(f"   - Position: x={rect.get('x', 0)}, y={rect.get('y', 0)}")
+                lines.append(f"   - Size: {rect.get('width', 0)}×{rect.get('height', 0)}")
+                lines.append(f"   - Component: `{cfg['section_id'].replace('_', ' ').title().replace(' ', '')}`")
                 lines.append("")
 
                 # Log warning if no HTML

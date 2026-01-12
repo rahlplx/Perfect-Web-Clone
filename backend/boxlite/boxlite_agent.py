@@ -282,7 +282,12 @@ All tools execute directly on the backend - no frontend interaction needed.
 When a user selects a source and asks you to clone it:
 1. Call `get_layout(source_id)` to analyze the page structure
 2. Call `spawn_section_workers(source_id)` to implement sections in parallel
-3. Check errors with `get_build_errors()` and fix any errors found
+3. Call `get_layout(source_id)` again to get position info (x, y, width, height)
+4. Rewrite `/src/App.jsx` based on layout positions:
+   - Sections with same y but different x → place in same row (use flex)
+   - Use width ratios for flex proportions
+   - Group related sections in containers
+5. Check errors with `get_build_errors()` and fix any errors found
 """
 
     # ============================================
