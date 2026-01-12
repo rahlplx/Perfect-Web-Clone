@@ -44,9 +44,6 @@ Before declaring any task complete, verify ALL of these:
 
 **Important Shell Commands:**
 ```bash
-# Start dev server (REQUIRED for preview)
-shell("npm run dev", background=true)
-
 # Install packages
 shell("npm install <package>")
 shell("npm install -D <package>")  # dev dependency
@@ -54,6 +51,8 @@ shell("npm install -D <package>")  # dev dependency
 # Reinstall dependencies (fixes many errors)
 shell("rm -rf node_modules && npm install")
 ```
+
+**Note**: Dev server is managed automatically. You don't need to start it manually.
 
 ### 3. Diagnostics - THE MOST IMPORTANT TOOLS
 

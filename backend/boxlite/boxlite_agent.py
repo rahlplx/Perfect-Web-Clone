@@ -282,8 +282,7 @@ All tools execute directly on the backend - no frontend interaction needed.
 When a user selects a source and asks you to clone it:
 1. Call `get_layout(source_id)` to analyze the page structure
 2. Call `spawn_section_workers(source_id)` to implement sections in parallel
-3. Check errors with `get_build_errors()`
-4. Start dev server with `shell('npm run dev', background=true)` if not running
+3. Check errors with `get_build_errors()` and fix any errors found
 """
 
     # ============================================
@@ -484,7 +483,26 @@ When a user selects a source and asks you to clone it:
 
                 logger.info(f"[BoxLite Agent] Batch complete: {success_count} success, {failed_count} failed")
 
-                # Check if should continue
+                # If there were tool calls, MUST continue to let Claude analyze results
+                # This is critical for take_screenshot - Claude needs to analyze the image
+                # and report if there are any visual errors or issues
+                if tool_use_blocks:
+                    # Check if any tool was take_screenshot - add analysis prompt
+                    has_screenshot = any(b.name == "take_screenshot" for b in tool_use_blocks)
+                    if has_screenshot:
+                        # Add a text block prompting Claude to analyze the screenshot
+                        user_content.append({
+                            "type": "text",
+                            "text": "Please analyze the screenshot above. Check if there are any visual errors, "
+                                    "error messages, or issues visible. Then provide a summary of the result to the user."
+                        })
+                        # Update the last message with the analysis prompt
+                        messages[-1]["content"] = user_content
+
+                    logger.info("[BoxLite Agent] Tool calls executed, continuing to let Claude analyze results")
+                    continue  # Force next iteration
+
+                # Only exit when there are no tool calls
                 if response.stop_reason == "end_turn":
                     logger.info("[BoxLite Agent] End turn, complete")
                     break

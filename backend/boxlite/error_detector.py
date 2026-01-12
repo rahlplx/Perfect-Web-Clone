@@ -112,11 +112,27 @@ def get_suggestion(error_message: str) -> Optional[str]:
 class TerminalDetector:
     """Detect errors from terminal output"""
 
+    # Normal log patterns to EXCLUDE (not errors)
+    EXCLUDE_PATTERNS = [
+        r"\[vite\] hmr update",           # Hot module reload notification
+        r"\[vite\] page reload",          # Page reload notification
+        r"\[vite\] connected",            # WebSocket connected
+        r"\[vite\] ready in",             # Server ready
+        r"\[vite\] optimized dependencies", # Dependency optimization
+        r"\[vite\] pre-transform",        # Pre-transform notification
+        r"\[vite\] ✨",                   # Success messages
+        r"VITE v\d+",                     # Version info
+        r"ready in \d+ ms",               # Ready timing
+        r"Local:.*http",                  # Local URL info
+        r"Network:.*http",                # Network URL info
+        r"press h \+ enter",              # Help prompt
+    ]
+
     # Error patterns to match
     ERROR_PATTERNS = [
         # Vite/ESBuild errors (highest priority)
         (r"\[plugin:", "Vite Plugin Error"),
-        (r"\[vite\]", "Vite Error"),
+        (r"\[vite\].*error", "Vite Error"),  # Only match [vite] with "error"
         (r"\[esbuild\]", "ESBuild Error"),
 
         # JSX/Babel errors
@@ -168,7 +184,9 @@ class TerminalDetector:
             output_buffer = getattr(term, 'output_buffer', [])
 
             for i, line in enumerate(output_buffer):
-                line_lower = line.lower()
+                # Skip lines that match exclude patterns (normal logs)
+                if any(re.search(p, line, re.IGNORECASE) for p in self.EXCLUDE_PATTERNS):
+                    continue
 
                 for pattern, error_type in self.ERROR_PATTERNS:
                     if re.search(pattern, line, re.IGNORECASE):
