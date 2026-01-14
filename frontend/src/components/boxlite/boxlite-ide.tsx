@@ -33,6 +33,7 @@ import type {
   AgentLogEntry,
   FileDiffState,
 } from "@/types/boxlite";
+import { ExportButtons } from "@/components/agent/export-buttons";
 
 // Dynamic import Monaco editor to avoid SSR issues
 const MonacoCodeEditor = dynamic(
@@ -107,6 +108,8 @@ interface BoxLiteIDEProps {
   isResizing?: boolean;
   /** Selected source for image fetching */
   selectedSource?: SelectedSourceInfo | null;
+  /** Project name for exports */
+  projectName?: string;
 }
 
 // ============================================
@@ -965,6 +968,7 @@ export function BoxLiteIDE({
   onSaveFile,
   isResizing,
   selectedSource,
+  projectName = "nexting-project",
 }: BoxLiteIDEProps) {
   const [activeTab, setActiveTab] = useState<IDEViewTab>("preview");
   const [previewDevice, setPreviewDevice] = useState<DeviceType>("desktop");
@@ -1194,6 +1198,16 @@ export function BoxLiteIDE({
                 {isDevServerRunning ? "running" : (state?.status || "...")}
               </span>
             </div>
+          )}
+
+          {/* Code Toolbar - Download & Copy Prompt */}
+          {activeTab === "code" && (
+            <ExportButtons
+              files={state?.files || {}}
+              projectName={projectName}
+              visible={true}
+              selectedSource={selectedSource}
+            />
           )}
         </div>
       </div>

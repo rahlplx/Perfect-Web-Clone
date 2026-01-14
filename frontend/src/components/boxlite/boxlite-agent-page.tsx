@@ -699,6 +699,7 @@ export function BoxLiteAgentPage() {
               onSaveFile={handleSaveFile}
               isResizing={isResizing}
               selectedSource={selectedSource}
+              projectName={projectName || selectedSource?.title || "nexting-project"}
             />
           </div>
 
