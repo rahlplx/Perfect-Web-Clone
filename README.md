@@ -263,8 +263,8 @@ https://github.com/user-attachments/assets/248af639-20d9-45a8-ad0a-660a04a17b68
 
 ### Prerequisites
 
-- Python 3.11 - 3.12 (recommended)
-  > **Windows users**: Python 3.13+ has asyncio compatibility issues with Playwright. Please use Python 3.11 or 3.12.
+- Python 3.8+
+  > **Windows users**: Avoid Python 3.13+, which has asyncio compatibility issues with Playwright.
 - Node.js 18+
 - Anthropic API Key
 
@@ -415,7 +415,7 @@ nexting/
 | Category | Technologies |
 |----------|--------------|
 | **Frontend** | Next.js 15, React 19, TailwindCSS 4, Shadcn/UI, Three.js |
-| **Backend** | FastAPI, Python 3.11+, Playwright, WebSocket |
+| **Backend** | FastAPI, Python 3.8+, Playwright, WebSocket |
 | **AI** | Claude (Anthropic API), Multi-Agent Architecture |
 | **Sandbox** | BoxLite |
 | **Styling** | TailwindCSS, CSS Variables, Dark Mode Support |
