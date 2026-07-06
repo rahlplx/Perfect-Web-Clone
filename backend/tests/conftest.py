@@ -23,21 +23,15 @@ backend_dir = Path(__file__).parent.parent
 sys.path.insert(0, str(backend_dir))
 
 from boxlite.sandbox_manager import BoxLiteSandboxManager
+from boxlite.mock_sandbox import MockBoxLiteSandboxManager
 
 
 # ============================================
-# 事件循环配置
+# Event Loop Config
 # ============================================
 
 @pytest.fixture(scope="session")
 def event_loop():
-    """
-    创建一个事件循环供所有异步测试使用。
-
-    为什么需要这个：
-    - Python 的 async/await 需要事件循环
-    - pytest-asyncio 需要这个 fixture 来运行异步测试
-    """
     loop = asyncio.new_event_loop()
     yield loop
     loop.close()
@@ -49,58 +43,30 @@ def event_loop():
 
 @pytest.fixture
 def sandbox_id():
-    """
-    为每个测试生成一个唯一的 sandbox ID。
-
-    使用唯一 ID 的好处：
-    - 测试之间相互隔离
-    - 不会相互干扰
-    """
     import uuid
     return f"test-sandbox-{uuid.uuid4().hex[:8]}"
 
 
 @pytest.fixture
 async def sandbox(sandbox_id):
-    """
-    创建一个初始化好的 BoxLite sandbox 实例。
-
-    这是最常用的 fixture：
-    - 自动创建 sandbox
-    - 测试结束后自动清理
-
-    使用方式：
-    ```python
-    async def test_write_file(sandbox):
-        result = await write_file("/test.txt", "content", sandbox)
-        assert result.success
-    ```
-    """
-    # 创建 sandbox manager
-    manager = BoxLiteSandboxManager(sandbox_id)
-
-    # 初始化（创建工作目录，写入默认文件）
+    """Sandbox fixture using in-memory mock (no Docker/filesystem needed)"""
+    manager = MockBoxLiteSandboxManager(sandbox_id)
     await manager.initialize(reset=True)
-
-    # yield 返回 fixture 值，测试结束后继续执行清理代码
     yield manager
+    await manager.cleanup()
 
-    # 清理：删除测试目录
-    if manager.work_dir.exists():
-        shutil.rmtree(manager.work_dir)
+
+@pytest.fixture
+async def mock_sandbox():
+    """In-memory mock sandbox (no Docker/filesystem needed)"""
+    manager = MockBoxLiteSandboxManager("mock-test")
+    await manager.initialize(reset=True)
+    yield manager
+    await manager.cleanup()
 
 
 @pytest.fixture
 async def sandbox_with_files(sandbox):
-    """
-    创建一个包含测试文件的 sandbox。
-
-    预置文件：
-    - /test.txt: 简单文本
-    - /src/app.js: JavaScript 文件
-    - /src/utils.js: 工具函数
-    """
-    # 写入测试文件
     await sandbox.write_file("/test.txt", "Hello World\nLine 2\nLine 3")
     await sandbox.write_file("/src/app.js", """
 function main() {
@@ -119,7 +85,6 @@ export function multiply(a, b) {
     return a * b;
 }
 """.strip())
-
     return sandbox
 
 
