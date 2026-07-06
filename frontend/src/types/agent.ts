@@ -6,6 +6,39 @@
  */
 
 // ============================================
+// Framework Types
+// ============================================
+
+/**
+ * Supported frameworks for code generation
+ */
+export enum FrameworkType {
+  REACT = "react",
+  VUE = "vue",
+  SVELTE = "svelte",
+  ASTRO = "astro",
+  HTML = "html",
+  NEXTJS = "nextjs",
+}
+
+/**
+ * Supported styling approaches
+ */
+export enum StylingType {
+  TAILWIND = "tailwind",
+  CSS_MODULES = "css_modules",
+  PLAIN_CSS = "plain_css",
+}
+
+/**
+ * Framework configuration sent with chat messages
+ */
+export interface FrameworkConfig {
+  framework: FrameworkType;
+  styling: StylingType;
+}
+
+// ============================================
 // WebContainer Types
 // ============================================
 
@@ -167,6 +200,7 @@ export interface ChatMessage {
   contentBlocks?: ContentBlock[];
   isThinking?: boolean;
   images?: string[]; // Base64 encoded images attached to message
+  frameworkConfig?: FrameworkConfig; // Framework selection for this message
 }
 
 // ============================================

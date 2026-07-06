@@ -286,7 +286,8 @@ export class BoxLiteAgentClient {
     message: string,
     sandboxState?: BoxLiteSandboxState | null,
     selectedSourceId?: string | null,
-    images?: string[]
+    images?: string[],
+    frameworkConfig?: { framework: string; styling: string }
   ): void {
     this.send({
       type: "chat",
@@ -295,6 +296,8 @@ export class BoxLiteAgentClient {
         sandbox_state: sandboxState ? this.formatState(sandboxState) : undefined,
         selected_source_id: selectedSourceId || undefined,
         images: images && images.length > 0 ? images : undefined,
+        framework_type: frameworkConfig?.framework,
+        styling_type: frameworkConfig?.styling,
       },
     });
   }

@@ -282,7 +282,8 @@ export class NextingAgentClient {
     webcontainerState?: WebContainerState,
     selectedSourceId?: string | null,
     recentErrors?: string[],
-    images?: string[]
+    images?: string[],
+    frameworkConfig?: { framework: string; styling: string }
   ): void {
     this.send({
       type: "chat",
@@ -294,6 +295,9 @@ export class NextingAgentClient {
         recent_errors: recentErrors && recentErrors.length > 0 ? recentErrors : undefined,
         // Include images if provided (base64 encoded)
         images: images && images.length > 0 ? images : undefined,
+        // Include framework configuration
+        framework_type: frameworkConfig?.framework,
+        styling_type: frameworkConfig?.styling,
       },
     });
   }
