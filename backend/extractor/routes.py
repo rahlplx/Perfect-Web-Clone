@@ -9,12 +9,13 @@ FastAPI Routes for Playwright Extractor Module
 - GET /api/extractor/health - 健康检查
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
 import logging
 
+from main import verify_api_key
 from .models import (
     ExtractRequest,
     ExtractionResult,
@@ -51,7 +52,7 @@ async def health_check():
 # ==================== Extract Endpoint ====================
 
 @router.post('/extract', response_model=ExtractionResult)
-async def extract_page(request: ExtractRequest):
+async def extract_page(request: ExtractRequest, _: None = Depends(verify_api_key)):
     """
     提取网页的完整结构信息
 
@@ -110,7 +111,7 @@ async def extract_page(request: ExtractRequest):
 # ==================== Quick Extract Endpoint (分阶段提取) ====================
 
 @router.post('/extract/quick', response_model=QuickExtractionResult)
-async def extract_page_quick(request: ExtractRequest):
+async def extract_page_quick(request: ExtractRequest, _: None = Depends(verify_api_key)):
     """
     快速提取网页信息（分阶段提取，优化首屏加载）
 
@@ -162,7 +163,7 @@ async def extract_page_quick(request: ExtractRequest):
 
 
 @router.get('/extract/{request_id}/status', response_model=ExtractionStatus)
-async def get_extraction_status(request_id: str):
+async def get_extraction_status(request_id: str, _: None = Depends(verify_api_key)):
     """
     获取提取状态和后续阶段数据
 
@@ -214,7 +215,7 @@ async def get_extraction_status(request_id: str):
 # ==================== Cleanup Endpoint ====================
 
 @router.post('/cleanup')
-async def cleanup_browser():
+async def cleanup_browser(_: None = Depends(verify_api_key)):
     """
     清理浏览器资源
     关闭浏览器实例，释放资源
@@ -241,7 +242,7 @@ class ResourcesRequest(BaseModel):
 
 
 @router.post('/resources')
-async def fetch_page_resources(request: ResourcesRequest):
+async def fetch_page_resources(request: ResourcesRequest, _: None = Depends(verify_api_key)):
     """
     Fetch image resources from a URL (lightweight endpoint for WebContainer)
 

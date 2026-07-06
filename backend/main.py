@@ -27,8 +27,10 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import APIKeyHeader
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import anthropic
 
@@ -38,6 +40,23 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 
 limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
+
+# ============================================
+# Authentication (optional, enabled via API_KEY env var)
+# ============================================
+API_KEY = os.getenv("API_KEY", "")
+api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+
+async def verify_api_key(request: Request, api_key: str = Depends(api_key_header)):
+    """Verify API key if API_KEY is configured. Skip for health/docs."""
+    if not API_KEY:
+        return  # Auth disabled
+    if request.url.path in ("/health", "/docs", "/redoc", "/openapi.json"):
+        return  # Skip auth for health/docs
+    if api_key != API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
+
 
 # Configure logging
 logging.basicConfig(
@@ -79,6 +98,24 @@ app.add_middleware(
 # Rate limiting
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+# Unified error response format
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"success": False, "error": str(exc.detail)},
+    )
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"success": False, "error": "Internal server error"},
+    )
 
 
 # ============================================
@@ -151,7 +188,8 @@ except ImportError as e:
 # ============================================
 
 @app.get("/")
-async def root():
+@limiter.limit("100/minute")
+async def root(request: Request, _: None = Depends(verify_api_key)):
     """Root endpoint - API info"""
     return {
         "name": "Perfect Web Clone API",
@@ -188,7 +226,8 @@ class ProjectNameRequest(BaseModel):
 
 
 @app.post("/api/project-name")
-async def generate_project_name(request: ProjectNameRequest):
+@limiter.limit("30/minute")
+async def generate_project_name(request: Request, project_request: ProjectNameRequest, _: None = Depends(verify_api_key)):
     """
     Generate a short project name based on user intent.
     Uses Claude haiku for fast, low-cost naming.
@@ -216,7 +255,7 @@ async def generate_project_name(request: ProjectNameRequest):
             messages=[
                 {
                     "role": "user",
-                    "content": f"Based on this user intent, generate a short project name (2-5 words). Only return the name, nothing else.\n\nUser intent: {request.message}"
+                    "content": f"Based on this user intent, generate a short project name (2-5 words). Only return the name, nothing else.\n\nUser intent: {project_request.message}"
                 }
             ]
         )

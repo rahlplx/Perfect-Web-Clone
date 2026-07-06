@@ -480,10 +480,11 @@ class BoxLiteSandboxManager:
     async def write_file(self, path: str, content: str) -> bool:
         """Write content to a file"""
         import threading
+        from agent.security import validate_path, PathTraversalError
         try:
-            # Normalize path
-            normalized = path.lstrip("/")
-            file_path = self.work_dir / normalized
+            # Validate path stays within sandbox
+            file_path_str = validate_path(path, str(self.work_dir))
+            file_path = Path(file_path_str)
 
             # DEBUG: Log write operation with thread info
             thread_id = threading.current_thread().ident
@@ -498,7 +499,7 @@ class BoxLiteSandboxManager:
             await asyncio.to_thread(file_path.write_text, content, "utf-8")
 
             # Update state
-            state_path = f"/{normalized}"
+            state_path = f"/{Path(file_path_str).relative_to(self.work_dir).as_posix()}"
             self.state.files[state_path] = content
             self.state.updated_at = datetime.now()
 
@@ -511,14 +512,15 @@ class BoxLiteSandboxManager:
 
     async def read_file(self, path: str) -> Optional[str]:
         """Read file content"""
+        from agent.security import validate_path
         try:
-            normalized = path.lstrip("/")
-            file_path = self.work_dir / normalized
+            file_path_str = validate_path(path, str(self.work_dir))
+            file_path = Path(file_path_str)
 
             if file_path.exists() and file_path.is_file():
                 content = await asyncio.to_thread(file_path.read_text, "utf-8")
                 # Update cache
-                self.state.files[f"/{normalized}"] = content
+                self.state.files[f"/{Path(file_path_str).relative_to(self.work_dir).as_posix()}"] = content
                 return content
 
             return None
@@ -529,9 +531,10 @@ class BoxLiteSandboxManager:
 
     async def delete_file(self, path: str) -> bool:
         """Delete a file"""
+        from agent.security import validate_path
         try:
-            normalized = path.lstrip("/")
-            file_path = self.work_dir / normalized
+            file_path_str = validate_path(path, str(self.work_dir))
+            file_path = Path(file_path_str)
 
             if file_path.exists():
                 if file_path.is_dir():
@@ -540,7 +543,7 @@ class BoxLiteSandboxManager:
                     await asyncio.to_thread(file_path.unlink)
 
             # Update state
-            state_path = f"/{normalized}"
+            state_path = f"/{Path(file_path_str).relative_to(self.work_dir).as_posix()}"
             self.state.files.pop(state_path, None)
             self.state.updated_at = datetime.now()
 
@@ -552,9 +555,10 @@ class BoxLiteSandboxManager:
 
     async def list_files(self, path: str = "/") -> List[FileEntry]:
         """List files in a directory"""
+        from agent.security import validate_path
         try:
-            normalized = path.lstrip("/") or "."
-            dir_path = self.work_dir / normalized
+            file_path_str = validate_path(path, str(self.work_dir))
+            dir_path = Path(file_path_str)
 
             if not dir_path.exists() or not dir_path.is_dir():
                 return []
@@ -655,9 +659,23 @@ class BoxLiteSandboxManager:
         background: bool = False
     ) -> CommandResult:
         """Execute a shell command"""
+        from agent.security import check_command_allowed
+
         args = args or []
         full_command = [command] + args
         cmd_str = " ".join(full_command)
+
+        # Security: check command is allowed
+        allowed, reason = check_command_allowed(cmd_str)
+        if not allowed:
+            logger.warning(f"Blocked command: {cmd_str} - {reason}")
+            return CommandResult(
+                success=False,
+                stdout="",
+                stderr=f"Command blocked by security policy: {reason}",
+                exit_code=126,
+                duration_ms=0,
+            )
 
         logger.info(f"Running command: {cmd_str}")
 

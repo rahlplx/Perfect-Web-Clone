@@ -10,10 +10,11 @@ Provides HTTP endpoints for cache operations:
 - GET  /api/cache/stats     - Get cache statistics
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from typing import Dict, Any, Optional, List
 
+from main import verify_api_key
 from .memory_store import extraction_cache
 
 router = APIRouter(prefix="/api/cache", tags=["cache"])
@@ -78,7 +79,7 @@ class CacheStatsResponse(BaseModel):
 # ============================================
 
 @router.post("/store", response_model=StoreCacheResponse)
-async def store_cache(request: StoreCacheRequest):
+async def store_cache(request: StoreCacheRequest, _: None = Depends(verify_api_key)):
     """
     Store extraction result to cache
     存储提取结果到缓存
@@ -102,7 +103,7 @@ async def store_cache(request: StoreCacheRequest):
 
 
 @router.get("/list", response_model=CacheListResponse)
-async def list_cache():
+async def list_cache(_: None = Depends(verify_api_key)):
     """
     List all cached extractions
     列出所有缓存的提取结果
@@ -122,7 +123,7 @@ async def list_cache():
 
 
 @router.get("/stats", response_model=CacheStatsResponse)
-async def get_cache_stats():
+async def get_cache_stats(_: None = Depends(verify_api_key)):
     """
     Get cache statistics
     获取缓存统计信息
@@ -132,7 +133,7 @@ async def get_cache_stats():
 
 
 @router.get("/{entry_id}")
-async def get_cache(entry_id: str):
+async def get_cache(entry_id: str, _: None = Depends(verify_api_key)):
     """
     Get single cache entry with full data
     获取单个缓存条目（包含完整数据）
@@ -152,7 +153,7 @@ async def get_cache(entry_id: str):
 
 
 @router.delete("/{entry_id}")
-async def delete_cache(entry_id: str):
+async def delete_cache(entry_id: str, _: None = Depends(verify_api_key)):
     """
     Delete cache entry
     删除缓存条目
@@ -169,7 +170,7 @@ async def delete_cache(entry_id: str):
 
 
 @router.post("/clear")
-async def clear_cache():
+async def clear_cache(_: None = Depends(verify_api_key)):
     """
     Clear all cache entries
     清空所有缓存

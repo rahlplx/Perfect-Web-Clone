@@ -9,7 +9,6 @@ from __future__ import annotations
 import os
 import json
 import logging
-import asyncio
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List, Optional, Callable, Awaitable
 from dataclasses import dataclass, field
@@ -380,24 +379,6 @@ class BaseWorkerAgent(ABC):
             except Exception as e:
                 logger.error(f"Worker {self.worker_id} loop error: {e}", exc_info=True)
                 raise
-
-    async def _call_claude(
-        self,
-        system_prompt: str,
-        messages: List[Dict[str, Any]],
-        tools: List[Dict[str, Any]],
-    ):
-        """Call Claude API with proxy fallback"""
-        if self._openai_client:
-            return await self._call_via_proxy(system_prompt, messages, tools)
-
-        return await self._client.messages.create(
-            model=self.config.model,
-            max_tokens=self.config.max_tokens,
-            system=system_prompt,
-            messages=messages,
-            tools=tools if tools else anthropic.NOT_GIVEN,
-        )
 
     async def _call_via_proxy(
         self,

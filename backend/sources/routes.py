@@ -11,8 +11,10 @@ import uuid
 from pathlib import Path
 from datetime import datetime
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+
+from main import verify_api_key
 
 # ============================================
 # Router Setup
@@ -139,7 +141,7 @@ def list_all_sources() -> List[SavedSource]:
 # ============================================
 
 @sources_router.get("", response_model=SourcesListResponse)
-async def get_sources():
+async def get_sources(_: None = Depends(verify_api_key)):
     """
     Get all saved sources (without full data).
 
@@ -150,7 +152,7 @@ async def get_sources():
 
 
 @sources_router.get("/{source_id}", response_model=SourceResponse)
-async def get_source(source_id: str):
+async def get_source(source_id: str, _: None = Depends(verify_api_key)):
     """
     Get a single source with full data.
 
@@ -164,7 +166,7 @@ async def get_source(source_id: str):
 
 
 @sources_router.post("", response_model=SourceResponse)
-async def create_source(request: CreateSourceRequest):
+async def create_source(request: CreateSourceRequest, _: None = Depends(verify_api_key)):
     """
     Create a new source.
 
@@ -199,7 +201,7 @@ async def create_source(request: CreateSourceRequest):
 
 
 @sources_router.delete("/{source_id}")
-async def delete_source(source_id: str):
+async def delete_source(source_id: str, _: None = Depends(verify_api_key)):
     """
     Delete a source.
     """

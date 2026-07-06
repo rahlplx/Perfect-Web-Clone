@@ -12,10 +12,11 @@ import logging
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException, Query
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, HTTPException, Query
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from main import verify_api_key
 from .sandbox_manager import (
     BoxLiteSandboxManager,
     get_sandbox_manager,

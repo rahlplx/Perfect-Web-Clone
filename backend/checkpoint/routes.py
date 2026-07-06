@@ -17,10 +17,11 @@ Provides HTTP endpoints for checkpoint operations:
 - POST   /api/checkpoints/clear-temp            - Clear temporary projects
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from typing import Dict, Any, Optional, List
 
+from main import verify_api_key
 from .checkpoint_store import checkpoint_store
 
 router = APIRouter(prefix="/api/checkpoints", tags=["checkpoints"])
@@ -86,7 +87,7 @@ class CheckpointSummary(BaseModel):
 # ============================================
 
 @router.post("/projects")
-async def create_project(request: CreateProjectRequest):
+async def create_project(request: CreateProjectRequest, _: None = Depends(verify_api_key)):
     """
     Create or get existing checkpoint project
     创建新的检查点项目或获取已存在的项目
@@ -114,7 +115,7 @@ async def create_project(request: CreateProjectRequest):
 
 
 @router.get("/projects")
-async def list_projects(include_temp: bool = True):
+async def list_projects(include_temp: bool = True, _: None = Depends(verify_api_key)):
     """
     List all checkpoint projects
     列出所有检查点项目
@@ -131,7 +132,7 @@ async def list_projects(include_temp: bool = True):
 
 
 @router.get("/projects/{project_id}")
-async def get_project(project_id: str):
+async def get_project(project_id: str, _: None = Depends(verify_api_key)):
     """
     Get project detail with checkpoint list
     获取项目详情及检查点列表
@@ -150,7 +151,7 @@ async def get_project(project_id: str):
 
 
 @router.patch("/projects/{project_id}")
-async def update_project(project_id: str, request: UpdateProjectRequest):
+async def update_project(project_id: str, request: UpdateProjectRequest, _: None = Depends(verify_api_key)):
     """
     Update project metadata
     更新项目元数据
@@ -173,7 +174,7 @@ async def update_project(project_id: str, request: UpdateProjectRequest):
 
 
 @router.delete("/projects/{project_id}")
-async def delete_project(project_id: str, force: bool = False):
+async def delete_project(project_id: str, force: bool = False, _: None = Depends(verify_api_key)):
     """
     Delete project and all checkpoints
     删除项目及所有检查点
@@ -204,7 +205,7 @@ async def delete_project(project_id: str, force: bool = False):
 # ============================================
 
 @router.post("/projects/{project_id}/save")
-async def save_checkpoint(project_id: str, request: SaveCheckpointRequest):
+async def save_checkpoint(project_id: str, request: SaveCheckpointRequest, _: None = Depends(verify_api_key)):
     """
     Save a new checkpoint to project
     保存新的检查点到项目
@@ -227,7 +228,7 @@ async def save_checkpoint(project_id: str, request: SaveCheckpointRequest):
 
 
 @router.get("/projects/{project_id}/list")
-async def list_checkpoints(project_id: str):
+async def list_checkpoints(project_id: str, _: None = Depends(verify_api_key)):
     """
     List all checkpoints in project
     列出项目中的所有检查点
@@ -246,7 +247,7 @@ async def list_checkpoints(project_id: str):
 
 
 @router.get("/projects/{project_id}/{checkpoint_id}")
-async def get_checkpoint(project_id: str, checkpoint_id: str):
+async def get_checkpoint(project_id: str, checkpoint_id: str, _: None = Depends(verify_api_key)):
     """
     Get checkpoint detail with full data
     获取检查点详情（含完整数据）
@@ -265,7 +266,7 @@ async def get_checkpoint(project_id: str, checkpoint_id: str):
 
 
 @router.delete("/projects/{project_id}/{checkpoint_id}")
-async def delete_checkpoint(project_id: str, checkpoint_id: str):
+async def delete_checkpoint(project_id: str, checkpoint_id: str, _: None = Depends(verify_api_key)):
     """
     Delete a checkpoint
     删除检查点
@@ -286,7 +287,7 @@ async def delete_checkpoint(project_id: str, checkpoint_id: str):
 # ============================================
 
 @router.get("/all")
-async def list_all_checkpoints():
+async def list_all_checkpoints(_: None = Depends(verify_api_key)):
     """
     List ALL checkpoints from ALL projects
     列出所有项目的所有检查点
@@ -318,7 +319,7 @@ async def list_all_checkpoints():
 
 
 @router.post("/clear-temp")
-async def clear_temp_projects():
+async def clear_temp_projects(_: None = Depends(verify_api_key)):
     """
     Clear all temporary (non-showcase) projects
     清除所有临时项目
@@ -335,7 +336,7 @@ async def clear_temp_projects():
 
 
 @router.get("/showcases")
-async def list_showcases():
+async def list_showcases(_: None = Depends(verify_api_key)):
     """
     List only showcase projects (for Gallery)
     只列出展示案例（用于 Gallery）

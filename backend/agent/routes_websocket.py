@@ -29,8 +29,10 @@ import logging
 import json
 from typing import Optional
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, Header, Request
+from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect, Query, Header, Request
 from pydantic import BaseModel
+
+from main import verify_api_key
 
 # Rate limiting
 from slowapi import Limiter
@@ -310,7 +312,7 @@ async def health_check(request: Request):
 
 @router.get("/tools")
 @limiter.limit("100/minute")
-async def get_tools(request: Request):
+async def get_tools(request: Request, _: None = Depends(verify_api_key)):
     """Get available tools"""
     from .mcp_tools import TOOL_DEFINITIONS
 
@@ -322,7 +324,7 @@ async def get_tools(request: Request):
 
 @router.get("/sessions")
 @limiter.limit("100/minute")
-async def get_sessions(request: Request):
+async def get_sessions(request: Request, _: None = Depends(verify_api_key)):
     """Get active sessions (for debugging)"""
     ws_manager = get_ws_manager()
     return ws_manager.get_stats()
@@ -346,6 +348,7 @@ async def receive_action_result(
     request: Request,
     body: ActionResultRequest,
     session_id: str = Query(...),
+    _: None = Depends(verify_api_key),
 ):
     """
     Receive action result via HTTP (fallback for WebSocket issues)

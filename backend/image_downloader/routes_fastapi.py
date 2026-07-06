@@ -10,9 +10,10 @@ Provides endpoints for:
 import logging
 from typing import List, Optional
 from pydantic import BaseModel, Field
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 
+from main import verify_api_key
 from .downloader import ImageDownloader, ImageDownloadConfig
 
 logger = logging.getLogger(__name__)
@@ -75,7 +76,7 @@ router = APIRouter(prefix="/api/image-downloader", tags=["Image Downloader"])
 # ============================================
 
 @router.post("/download", response_model=BatchDownloadResponse)
-async def download_images(request: ImageDownloadRequest):
+async def download_images(request: ImageDownloadRequest, _: None = Depends(verify_api_key)):
     """
     Download and compress multiple images.
 

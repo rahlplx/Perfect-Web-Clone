@@ -1080,6 +1080,10 @@ class MCPToolExecutor:
         path = input.get("path", "")
         content = input.get("content", "")
 
+        # Validate path - block traversal attempts
+        if ".." in path:
+            return (f"Error: path traversal not allowed: {path}", True)
+
         # Validate path
         if not path.startswith("/"):
             path = "/" + path
@@ -1110,6 +1114,9 @@ class MCPToolExecutor:
             tuple: (result_text, is_error)
         """
         path = input.get("path", "")
+
+        if ".." in path:
+            return (f"Error: path traversal not allowed: {path}", True)
 
         if not path.startswith("/"):
             path = "/" + path
@@ -1152,6 +1159,9 @@ class MCPToolExecutor:
         path = input.get("path", "")
         old_text = input.get("old_text", "")
         new_text = input.get("new_text", "")
+
+        if ".." in path:
+            return (f"Error: path traversal not allowed: {path}", True)
 
         if not path.startswith("/"):
             path = "/" + path
@@ -1348,6 +1358,9 @@ class MCPToolExecutor:
         """
         path = input.get("path", "")
         recursive = input.get("recursive", False)
+
+        if ".." in path:
+            return (f"Error: path traversal not allowed: {path}", True)
 
         if not path.startswith("/"):
             path = "/" + path

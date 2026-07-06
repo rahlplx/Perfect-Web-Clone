@@ -11,9 +11,10 @@ import os
 import httpx
 import logging
 from urllib.parse import urlparse, unquote
-from fastapi import APIRouter, Query, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, Query, HTTPException, BackgroundTasks
 from fastapi.responses import Response, JSONResponse
 
+from main import verify_api_key
 from .cache_manager import ImageCacheManager
 
 logger = logging.getLogger(__name__)
@@ -77,6 +78,7 @@ router = APIRouter(prefix="/api/image-proxy", tags=["Image Proxy"])
 async def proxy_image(
     url: str = Query(..., description="URL of the image to proxy"),
     background_tasks: BackgroundTasks = None,
+    _: None = Depends(verify_api_key),
 ):
     """
     Proxy an external image to bypass CORS restrictions.
@@ -194,7 +196,7 @@ async def proxy_image(
 
 
 @router.get("/stats")
-async def get_cache_stats():
+async def get_cache_stats(_: None = Depends(verify_api_key)):
     """
     Get cache statistics.
 
@@ -211,7 +213,7 @@ async def get_cache_stats():
 
 
 @router.post("/cleanup")
-async def cleanup_cache():
+async def cleanup_cache(_: None = Depends(verify_api_key)):
     """
     Clean up expired cache entries.
 
@@ -228,7 +230,7 @@ async def cleanup_cache():
 
 
 @router.delete("/clear")
-async def clear_cache():
+async def clear_cache(_: None = Depends(verify_api_key)):
     """
     Clear all cached images.
 
