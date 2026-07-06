@@ -1670,8 +1670,10 @@ class BoxLiteMCPExecutor:
         source_file = SOURCES_DIR / f"{source_id}.json"
         if source_file.exists():
             try:
-                with open(source_file, "r", encoding="utf-8") as f:
-                    return json.load(f)
+                def _load_json():
+                    with open(source_file, "r", encoding="utf-8") as f:
+                        return json.load(f)
+                return await asyncio.to_thread(_load_json)
             except Exception as e:
                 logger.error(f"Error loading source file: {e}")
 
@@ -2175,17 +2177,21 @@ a {
 
             # Also check file-based sources
             if SOURCES_DIR.exists():
-                for source_file in SOURCES_DIR.glob("*.json"):
-                    try:
-                        with open(source_file, "r", encoding="utf-8") as f:
-                            data = json.load(f)
-                            sources.append({
-                                "id": source_file.stem,
-                                "source_url": data.get("source_url", ""),
-                                "page_title": data.get("page_title", ""),
-                            })
-                    except Exception:
-                        pass
+                def _scan_sources():
+                    results = []
+                    for source_file in SOURCES_DIR.glob("*.json"):
+                        try:
+                            with open(source_file, "r", encoding="utf-8") as f:
+                                data = json.load(f)
+                                results.append({
+                                    "id": source_file.stem,
+                                    "source_url": data.get("source_url", ""),
+                                    "page_title": data.get("page_title", ""),
+                                })
+                        except Exception:
+                            pass
+                    return results
+                sources.extend(await asyncio.to_thread(_scan_sources))
 
             if not sources:
                 return ("No sources available. Extract a website first.", False)

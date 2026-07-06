@@ -55,11 +55,23 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS configuration - allow all for open-source version
+# CORS configuration - environment-based
+# Set CORS_ORIGINS env var for production (comma-separated)
+# Default: open for development, restricted for production
+_cors_origins_str = os.getenv("CORS_ORIGINS", "")
+_cors_credentials = os.getenv("CORS_ALLOW_CREDENTIALS", "false").lower() == "true"
+
+if _cors_origins_str:
+    _cors_origins = [o.strip() for o in _cors_origins_str.split(",") if o.strip()]
+else:
+    # Open-source default: allow all origins (no credentials for safety)
+    _cors_origins = ["*"]
+    _cors_credentials = False
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=_cors_origins,
+    allow_credentials=_cors_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )

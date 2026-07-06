@@ -374,21 +374,23 @@ class BoxLiteSandboxManager:
                 for item in self.work_dir.iterdir():
                     if item.name != "node_modules":
                         if item.is_dir():
-                            shutil.rmtree(item)
+                            await asyncio.to_thread(shutil.rmtree, item)
                         else:
-                            item.unlink()
+                            await asyncio.to_thread(item.unlink)
             else:
-                self.work_dir.mkdir(parents=True, exist_ok=True)
+                await asyncio.to_thread(self.work_dir.mkdir, parents=True, exist_ok=True)
 
             # Clear state files
             self.state.files.clear()
 
-            # Write default files
-            for path, content in DEFAULT_FILES.items():
-                file_path = self.work_dir / path
-                file_path.parent.mkdir(parents=True, exist_ok=True)
-                file_path.write_text(content, encoding="utf-8")
-                self.state.files[f"/{path}"] = content
+            # Write default files (offload to thread)
+            def _write_defaults():
+                for path, content in DEFAULT_FILES.items():
+                    file_path = self.work_dir / path
+                    file_path.parent.mkdir(parents=True, exist_ok=True)
+                    file_path.write_text(content, encoding="utf-8")
+                    self.state.files[f"/{path}"] = content
+            await asyncio.to_thread(_write_defaults)
 
             self.state.status = SandboxStatus.READY
             self._initialized = True
@@ -453,10 +455,10 @@ class BoxLiteSandboxManager:
             await self.dev_server_process.stop()
             self.dev_server_process = None
 
-        # Remove work directory
+        # Remove work directory (offload to thread)
         try:
             if self.work_dir.exists():
-                shutil.rmtree(self.work_dir)
+                await asyncio.to_thread(shutil.rmtree, self.work_dir)
         except Exception as e:
             logger.warning(f"Failed to remove sandbox directory: {e}")
 
@@ -492,8 +494,8 @@ class BoxLiteSandboxManager:
             # Create parent directories
             file_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Write file
-            file_path.write_text(content, encoding="utf-8")
+            # Write file (offload to thread to avoid blocking event loop)
+            await asyncio.to_thread(file_path.write_text, content, "utf-8")
 
             # Update state
             state_path = f"/{normalized}"
@@ -514,7 +516,7 @@ class BoxLiteSandboxManager:
             file_path = self.work_dir / normalized
 
             if file_path.exists() and file_path.is_file():
-                content = file_path.read_text(encoding="utf-8")
+                content = await asyncio.to_thread(file_path.read_text, "utf-8")
                 # Update cache
                 self.state.files[f"/{normalized}"] = content
                 return content
@@ -533,9 +535,9 @@ class BoxLiteSandboxManager:
 
             if file_path.exists():
                 if file_path.is_dir():
-                    shutil.rmtree(file_path)
+                    await asyncio.to_thread(shutil.rmtree, file_path)
                 else:
-                    file_path.unlink()
+                    await asyncio.to_thread(file_path.unlink)
 
             # Update state
             state_path = f"/{normalized}"
@@ -639,7 +641,7 @@ class BoxLiteSandboxManager:
                 elif item.is_dir():
                     scan_dir(item, rel_path)
 
-        scan_dir(self.work_dir)
+        await asyncio.to_thread(scan_dir, self.work_dir)
 
     # ============================================
     # Command Execution
