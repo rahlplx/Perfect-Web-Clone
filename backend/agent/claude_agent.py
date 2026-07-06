@@ -302,6 +302,8 @@ class ClaudeAgent:
                     logger.info(f"[Agent] Framework: {ft.value}, Styling: {st.value}")
                 except (ValueError, KeyError) as e:
                     logger.warning(f"[Agent] Invalid framework config: {e}, defaulting to React")
+                    self.session.framework_type = FrameworkType.REACT
+                    self.session.styling_type = StylingType.TAILWIND
 
             # Add selected source context if available
             logger.info(f"[Process Message] selected_source_id = {selected_source_id}")
