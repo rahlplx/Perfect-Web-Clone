@@ -35,6 +35,7 @@ from .task_contract import (
     create_task_contract,
     create_integration_plan,
 )
+from .framework_config import get_framework_config
 
 # Agent communication protocol
 from .agent_protocol import (
@@ -3201,7 +3202,7 @@ Please ensure the source was extracted with DOM tree."""
                     "section_type": section_type,
                     "display_name": original_name,  # 保留原始名称用于显示（如 "Section 1"）
                     "task_description": contract.generate_worker_prompt()[:500] + "...",  # Preview only
-                    "target_files": [contract.get_allowed_path(f"{contract._namespace_to_component_name()}.jsx")],
+                    "target_files": [contract.get_allowed_path(f"{contract._namespace_to_component_name()}{get_framework_config(contract.framework_type, contract.styling_type).file_extension}")],
                     # TaskContract data - Worker will receive this
                     "_task_contract": contract.to_dict(),
                     "_section_data": section_data,
@@ -3346,7 +3347,7 @@ Please ensure the source was extracted with DOM tree."""
             lines.append("<summary>App.jsx template (USE ONLY AFTER WORKERS COMPLETE)</summary>")
             lines.append("")
             lines.append("```jsx")
-            lines.append(integration_plan.generate_app_jsx())
+            lines.append(integration_plan.generate_root_component())
             lines.append("```")
             lines.append("</details>")
             lines.append("")
@@ -3441,7 +3442,7 @@ Please ensure the source was extracted with DOM tree."""
 
     def _clean_section_html(self, html: str) -> str:
         """
-        Clean HTML content to remove elements that don't belong in React components.
+        Clean HTML content by removing elements that don't belong in components.
 
         Removes:
         - <!DOCTYPE> declarations
@@ -3458,7 +3459,7 @@ Please ensure the source was extracted with DOM tree."""
         - Class names and IDs
 
         Returns:
-            Cleaned HTML string suitable for JSX conversion
+            Cleaned HTML string suitable for component conversion
         """
         import re
 

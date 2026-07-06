@@ -305,7 +305,7 @@ When a user selects a source and asks you to clone it:
 1. Call `get_layout(source_id)` to analyze the page structure
 2. Call `spawn_section_workers(source_id)` to implement sections in parallel
 3. Call `get_layout(source_id)` again to get position info (x, y, width, height)
-4. Rewrite `/src/App.jsx` based on layout positions:
+4. Rewrite the entry file (e.g., `/src/App.jsx` for React) based on layout positions:
    - Sections with same y but different x → place in same row (use flex)
    - Use width ratios for flex proportions
    - Group related sections in containers

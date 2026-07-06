@@ -256,7 +256,7 @@ SubAgent Types:
    - Tools: list_files, read_file, search, get_project_structure
    - Use for: Understanding code, finding files, quick research
    - Speed: Fast (read-only operations)
-   - Example: "Find all React components that use useState hook"
+    - Example: "Find all components that use state/refs"
 
 2. **plan** - Implementation planning
    - Tools: All read tools + planning

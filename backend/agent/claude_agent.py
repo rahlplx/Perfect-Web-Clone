@@ -301,7 +301,7 @@ class ClaudeAgent:
                     self.session.styling_type = st
                     logger.info(f"[Agent] Framework: {ft.value}, Styling: {st.value}")
                 except (ValueError, KeyError) as e:
-                    logger.warning(f"[Agent] Invalid framework config: {e}, defaulting to React")
+                    logger.warning(f"[Agent] Invalid framework config: {e}, defaulting to React (backward compatible)")
                     self.session.framework_type = FrameworkType.REACT
                     self.session.styling_type = StylingType.TAILWIND
 
@@ -740,7 +740,7 @@ class ClaudeAgent:
             context_parts.append("### Next Steps:")
             context_parts.append(f"1. Call `get_layout(source_id=\"{source_id}\")` to analyze the page structure")
             context_parts.append("2. Call `spawn_section_workers()` to generate the components")
-            context_parts.append("3. Write App.jsx and index.css to integrate everything")
+            context_parts.append("3. Write the entry file (e.g., App.jsx for React, App.vue for Vue) and index.css to integrate everything")
             context_parts.append("")
             context_parts.append("=" * 60)
 

@@ -260,9 +260,9 @@ def write_file(path: str, content: str) -> ToolResult:
     - After writing, check for errors with get_state() or shell("cat file")
 
     Examples:
-        write_file("/src/App.jsx", "import React from 'react';...")
+        write_file("/src/App.jsx", "import React from 'react';...")  # Or App.vue for Vue
         write_file("/package.json", '{"name": "my-app", ...}')
-        write_file("/src/components/Button.jsx", "export function Button()...")
+        write_file("/src/components/Button.jsx", "export function Button()...")  # Or Button.vue
 
     Args:
         path: File path (e.g., "/src/App.jsx", "package.json")
@@ -883,7 +883,7 @@ def get_preview_dom(selector: str = "body", depth: int = 5) -> ToolResult:
 
     Examples:
         get_preview_dom()                  # Get full body DOM
-        get_preview_dom("#root")           # Get React root only
+        get_preview_dom("#root")           # Get root element (React root, Vue mount, etc.)
         get_preview_dom(".header", depth=3) # Get header with limited depth
 
     Args:
@@ -1002,14 +1002,14 @@ def get_build_errors() -> ToolResult:
     CRITICAL: Use this to detect and fix code errors!
     This tool actively checks for:
     - Vite compilation errors (syntax errors, import errors)
-    - React error boundaries
+    - Error boundaries (React error boundaries, Vue error handlers, etc.)
     - Runtime errors displayed in error overlays
 
     Returns:
     - hasErrors: true/false - are there build errors?
     - errorCount: number of errors detected
     - errors: array of error objects with:
-      - type: error source (vite-overlay, react-error-boundary, console-error)
+      - type: error source (vite-overlay, error-boundary, console-error)
       - message: error message
       - file: affected file path (if available)
       - frame: code frame showing error location (if available)
@@ -1398,7 +1398,7 @@ CRITICAL: Use this to detect and fix code errors!
 
 Actively checks for:
 - Vite compilation errors (syntax, imports, JSX)
-- React error boundaries
+- Framework error boundaries (React, Vue, Svelte)
 - Runtime errors in error overlays
 - Console build errors
 
@@ -1409,7 +1409,7 @@ Returns:
   "errors": [{
     "type": "vite-overlay",
     "message": "Unexpected token...",
-    "file": "/src/App.jsx:42:15",
+    "file": "/src/App.jsx:42:15",  # Or App.vue, App.svelte
     "frame": "code context showing error",
     "stack": "optional stack trace"
   }]

@@ -1301,6 +1301,7 @@ function ChatInput({
           {/* Framework selectors (left side) */}
           <div className="flex items-center gap-1">
             <select
+              aria-label="Select target framework"
               value={selectedFramework}
               onChange={(e) => {
                 const newFramework = e.target.value;
@@ -1326,6 +1327,7 @@ function ChatInput({
             </select>
 
             <select
+              aria-label="Select styling approach"
               value={selectedStyling}
               onChange={(e) => {
                 const newStyling = e.target.value;

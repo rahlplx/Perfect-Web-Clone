@@ -103,17 +103,19 @@ ERROR_PATTERNS = [
         ]
     },
 
-    # React/JSX Errors
+    # Framework Import Errors
     {
-        "pattern": r"React is not defined",
-        "category": "MISSING_REACT_IMPORT",
+        "pattern": r"(React|Vue|Svelte|Astro) is not defined",
+        "category": "MISSING_FRAMEWORK_IMPORT",
         "severity": "MEDIUM",
         "extract_file": lambda m: None,
-        "description": "Missing React import in JSX file",
+        "description": "Missing framework import in component file",
         "fix_strategy": [
-            "1. Add import to the top of the file:",
-            "   edit_file(path, old_content, \"import React from 'react';\\n\" + old_content)",
-            "Note: This is rare in React 17+ with new JSX transform",
+            "1. Add the missing import to the top of the file",
+            "   For React: edit_file(path, old_content, \"import React from 'react';\\n\" + old_content)",
+            "   For Vue: no explicit import needed (auto-imported in SFC)",
+            "   For Svelte: no explicit import needed (auto-imported in .svelte files)",
+            "Note: React 17+ with new JSX transform may not need explicit import",
         ]
     },
     {
@@ -218,7 +220,7 @@ ERROR_PATTERNS = [
         "description": "Page loaded but no visible content rendered",
         "fix_strategy": [
             "1. Check if App/main component renders properly",
-            "2. Verify ReactDOM.createRoot() or render() is called",
+            "2. Verify the framework mount function is called (ReactDOM.createRoot() for React, createApp() for Vue, mount() for Svelte)",
             "3. Check for silent errors in component lifecycle",
             "4. Take screenshot and analyze what's visible",
         ]
@@ -245,20 +247,22 @@ ERROR_PATTERNS = [
         "description": "Unexpected token in JavaScript/JSX",
         "fix_strategy": [
             "1. Look for missing/extra brackets, parentheses, or braces",
-            "2. Check for invalid JSX syntax (e.g., class vs className)",
+            "2. Check for invalid syntax (e.g., class vs className in React, or :class in Vue)",
             "3. Verify all strings are properly quoted",
         ]
     },
     {
         "pattern": r"Invalid hook call",
-        "category": "REACT_HOOK_ERROR",
+        "category": "HOOK_ERROR",
         "severity": "HIGH",
         "extract_file": lambda m: None,
-        "description": "React hook called incorrectly",
+        "description": "Framework hook/lifecycle called incorrectly",
         "fix_strategy": [
             "1. Ensure hooks are called at the top level of function components",
             "2. Don't call hooks inside loops, conditions, or nested functions",
-            "3. Make sure you're using the same React version everywhere",
+            "3. Make sure you're using the same framework version everywhere",
+            "4. For Vue: composition functions must be called during setup()",
+            "5. For Svelte: lifecycle functions must be called at top level of component",
         ]
     },
 ]

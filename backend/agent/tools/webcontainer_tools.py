@@ -485,7 +485,7 @@ def run_command(command: str, args: Optional[List[str]] = None) -> ToolResult:
 
     Args:
         command: Command to run (e.g., "npm", "node", "ls")
-        args: Command arguments (e.g., ["install", "react"])
+        args: Command arguments (e.g., ["install", "package-name"])
 
     Returns:
         ToolResult with action for frontend
@@ -2125,20 +2125,38 @@ def understand_user_context(
     files = webcontainer_state.get("files", {})
     file_paths = list(files.keys())
 
+    # Framework detection (React, Vue, Svelte, Astro)
     has_react = any("react" in files.get(f, "").lower() for f in file_paths)
+    has_vue = any("vue" in files.get(f, "").lower() for f in file_paths)
+    has_svelte = any("svelte" in files.get(f, "").lower() for f in file_paths)
+    has_astro = any("astro" in files.get(f, "").lower() for f in file_paths)
     has_vite = any("vite" in f.lower() for f in file_paths)
     has_package_json = "/package.json" in file_paths or "package.json" in file_paths
 
     if has_package_json:
         pkg_content = files.get("/package.json") or files.get("package.json", "")
-        if "react" in pkg_content.lower():
-            has_react = True
-        if "vite" in pkg_content.lower():
-            has_vite = True
+        if pkg_content:
+            pkg_lower = pkg_content.lower()
+            if "react" in pkg_lower:
+                has_react = True
+            if "vue" in pkg_lower or "vue-router" in pkg_lower:
+                has_vue = True
+            if "svelte" in pkg_lower:
+                has_svelte = True
+            if "astro" in pkg_lower:
+                has_astro = True
+            if "vite" in pkg_lower:
+                has_vite = True
 
     project_type = []
     if has_react:
         project_type.append("React")
+    if has_vue:
+        project_type.append("Vue")
+    if has_svelte:
+        project_type.append("Svelte")
+    if has_astro:
+        project_type.append("Astro")
     if has_vite:
         project_type.append("Vite")
 

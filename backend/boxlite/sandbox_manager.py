@@ -64,6 +64,7 @@ DEFAULT_FILES = {
             "build": "vite build",
             "preview": "vite preview"
         },
+        # Default dependencies (React). Can be overridden via framework config.
         "dependencies": {
             "react": "^18.2.0",
             "react-dom": "^18.2.0"
@@ -117,6 +118,7 @@ export default {
 }
 """,
 
+    # Default HTML entry. Update script src for Vue: /src/main.js, Svelte: /src/main.js
     "index.html": """<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -131,6 +133,7 @@ export default {
 </html>
 """,
 
+    # React default entry file. For Vue use src/main.js, for Svelte use src/main.js
     "src/main.jsx": """import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
@@ -143,6 +146,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 )
 """,
 
+    # React default App component. For Vue use App.vue, for Svelte use App.svelte
     "src/App.jsx": """import React from 'react'
 
 function App() {

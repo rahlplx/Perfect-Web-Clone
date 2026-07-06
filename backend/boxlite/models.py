@@ -161,7 +161,7 @@ class ErrorSource(str, Enum):
 
 class BuildError(BaseModel):
     """Build/compilation error"""
-    type: str  # vite-overlay, react-error-boundary, syntax-error, etc.
+    type: str  # vite-overlay, error-boundary, syntax-error, etc.
     message: str
     file: Optional[str] = None
     line: Optional[int] = None

@@ -60,7 +60,7 @@ async def write_file(
     Write content to a file. Creates parent directories if needed.
 
     Args:
-        path: File path (e.g., "/src/App.jsx")
+        path: File path (e.g., "/src/App.jsx" or "/src/App.vue")
         content: File content to write
         sandbox: Sandbox manager instance
 
@@ -1060,7 +1060,7 @@ def get_boxlite_tool_definitions() -> List[dict]:
                 "properties": {
                     "path": {
                         "type": "string",
-                        "description": "File path (e.g., '/src/App.jsx')"
+                        "description": "File path (e.g., '/src/App.jsx' or '/src/App.vue')"
                     },
                     "content": {
                         "type": "string",
@@ -1161,7 +1161,7 @@ def get_boxlite_tool_definitions() -> List[dict]:
             "description": """Execute a shell command in the sandbox.
 
 Use this for:
-- Installing packages: shell("npm install react")
+- Installing packages: shell("npm install <package-name>")  # e.g., "npm install react"
 - Starting dev server: shell("npm run dev", background=True)
 - Creating directories: shell("mkdir -p src/components")
 - Any shell command""",

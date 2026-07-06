@@ -28,11 +28,11 @@ logger = logging.getLogger(__name__)
 # ============================================
 
 ERROR_SUGGESTIONS = {
-    # JSX/Syntax errors
-    "Unterminated JSX": "Check for unclosed JSX tags. Every <tag> needs a matching </tag> or self-close with />",
+    # JSX/Syntax errors (React, Vue templates, Svelte, Astro)
+    "Unterminated JSX": "Check for unclosed tags. Every <tag> needs a matching </tag> or self-close with />",
     "Unexpected token": "Check for syntax errors: missing brackets, parentheses, or quotes",
-    "Adjacent JSX elements": "Wrap multiple JSX elements in a parent <div> or <> fragment",
-    "JSX element": "Check JSX syntax - ensure proper tag structure",
+    "Adjacent JSX elements": "Wrap multiple elements in a parent <div> or <> fragment (or use Vue/Svelte root slot)",
+    "JSX element": "Check component syntax - ensure proper tag structure",
 
     # Module errors
     "Cannot find module": "Run 'npm install' or check if the package is in package.json",
@@ -40,8 +40,8 @@ ERROR_SUGGESTIONS = {
     "Module not found": "Verify the module is installed and the import path is correct",
     "is not exported": "Check the export statement in the source file",
 
-    # React errors
-    "Invalid hook call": "Hooks can only be called inside function components or custom hooks",
+    # Framework errors (React hooks, Vue composition, Svelte lifecycle)
+    "Invalid hook call": "Hooks/lifecycle functions can only be called inside component context",
     "is not defined": "Import the variable/component or check for typos in the name",
     "Cannot read property": "Check if the variable is null/undefined before accessing properties",
     "Cannot read properties of undefined": "Add null check or optional chaining (?.) before property access",
@@ -307,9 +307,9 @@ class BrowserDetector:
                     vite_errors = await self._detect_vite_overlay(page)
                     errors.extend(vite_errors)
 
-                    # 2. Check for React Error Boundary
-                    react_errors = await self._detect_react_errors(page)
-                    errors.extend(react_errors)
+                    # 2. Check for framework Error Boundary
+                    framework_errors = await self._detect_framework_errors(page)
+                    errors.extend(framework_errors)
 
                     # 3. Process console errors
                     for msg in console_errors:
@@ -397,18 +397,21 @@ class BrowserDetector:
 
         return errors
 
-    async def _detect_react_errors(self, page) -> List[BuildError]:
-        """Detect React error boundary or error overlay"""
+    async def _detect_framework_errors(self, page) -> List[BuildError]:
+        """Detect framework error boundaries (React, Vue, Svelte) or error overlays"""
         errors = []
 
         try:
-            # Common React error boundary patterns
+            # Common framework error boundary patterns
             selectors = [
                 '[class*="error-boundary"]',
                 '[class*="ErrorBoundary"]',
                 '#react-error-overlay',
                 '[data-react-error]',
                 '.react-error-overlay',
+                '[data-vue-error]',
+                '#vue-error-overlay',
+                '[data-svelte-error]',
             ]
 
             for selector in selectors:
@@ -423,7 +426,7 @@ class BrowserDetector:
                             stack = await stack_element.text_content()
 
                         errors.append(BuildError(
-                            type="React Error",
+                            type="Framework Error",
                             message=content[:500],
                             stack=stack[:1000] if stack else None,
                             suggestion=get_suggestion(content),
@@ -432,7 +435,7 @@ class BrowserDetector:
                         break  # Only report first error boundary
 
         except Exception as e:
-            logger.debug(f"React error detection error: {e}")
+            logger.debug(f"Framework error detection error: {e}")
 
         return errors
 
@@ -468,8 +471,8 @@ class StaticAnalyzer:
         errors = []
 
         for file_path, content in self.files.items():
-            # Only analyze JS/JSX/TS/TSX files
-            if not file_path.endswith(('.js', '.jsx', '.ts', '.tsx')):
+            # Only analyze source files (supports multiple frameworks)
+            if not file_path.endswith(('.js', '.jsx', '.ts', '.tsx', '.vue', '.svelte', '.astro')):
                 continue
 
             # 1. Check import paths
@@ -512,25 +515,17 @@ class StaticAnalyzer:
         """Check for basic syntax issues"""
         errors = []
 
-        # Check for unclosed JSX tags (simple heuristic)
-        if file_path.endswith(('.jsx', '.tsx')):
-            # Count opening and closing tags (simplified)
-            # This is a basic check - not a full parser
-
-            # Check for common JSX issues
+        # Check for unclosed tags (works for JSX, Vue templates, Svelte, Astro)
+        if file_path.endswith(('.jsx', '.tsx', '.vue', '.svelte', '.astro')):
             lines = content.split('\n')
             for i, line in enumerate(lines):
-                # Check for `<` without proper context
                 if '</' in line:
-                    # Extract tag name
                     match = re.search(r'</(\w+)', line)
                     if match:
                         closing_tag = match.group(1)
                         # Simple check: is this tag opened somewhere before?
                         preceding = '\n'.join(lines[:i+1])
                         if f'<{closing_tag}' not in preceding and f'<{closing_tag.lower()}' not in preceding.lower():
-                            # Could be a closing tag without opening
-                            # But this could also be legitimate (component from import)
                             pass  # Skip - too many false positives
 
         return errors

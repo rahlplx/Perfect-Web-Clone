@@ -1,0 +1,9 @@
+{
+  "project": "Perfect Web Clone",
+  "phase": "plan",
+  "step": "init",
+  "has_ui": false,
+  "agent": "opencode",
+  "last_updated": "2026-07-07",
+  "design_doc": "docs/design/design-doc.md"
+}

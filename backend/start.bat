@@ -36,6 +36,11 @@ if not exist ".env" (
     )
 )
 
+REM Load PORT from .env if set
+if exist ".env" (
+    for /f "tokens=2 delims==" %%a in ('findstr /b "PORT=" .env') do set PORT=%%a
+)
+
 REM Start the server
 echo.
 if "%PORT%"=="" set PORT=5100

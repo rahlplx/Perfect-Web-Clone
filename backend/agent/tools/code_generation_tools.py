@@ -1,11 +1,12 @@
 """
 Code Generation Tools for Nexting Agent
 
-Provides advanced tools for generating React components from JSON data and extracting design tokens.
-These tools help the Agent create high-quality, data-driven code instead of hardcoded placeholders.
+Provides advanced tools for generating components (React, Vue, Svelte, etc.) from JSON data
+and extracting design tokens. These tools help the Agent create high-quality, data-driven code
+instead of hardcoded placeholders.
 
 Tools:
-1. generate_component_from_json() - Generate React component code from JSON data
+1. generate_component_from_json() - Generate component code from JSON data (supports React/Vue/Svelte)
 2. extract_design_tokens() - Extract design tokens (colors, fonts, spacing) from styles
 
 NOTE: This version uses memory cache instead of Supabase for open-source deployment.
@@ -139,43 +140,47 @@ def analyze_data_structure(data: Any) -> Dict[str, Any]:
         }
 
 
-def generate_react_component_code(
+def generate_component_code(
     component_name: str,
     data: Any,
     analysis: Dict[str, Any],
-    use_typescript: bool = True
+    use_typescript: bool = True,
+    framework: str = "react"
 ) -> str:
     """
-    Generate React component code based on data structure analysis.
+    Generate component code based on data structure analysis.
+    Defaults to React; also supports Vue and Svelte.
 
     Args:
         component_name: Name of the component to generate
         data: The actual data to use
         analysis: Result from analyze_data_structure()
         use_typescript: Whether to generate TypeScript code
+        framework: "react" (default), "vue", or "svelte"
 
     Returns:
-        Generated React component code as string
+        Generated component code as string
     """
     data_type = analysis.get("data_type")
     suggested_component = analysis.get("suggested_component")
 
     # Generate appropriate component based on data structure
     if data_type == "array" and analysis.get("item_type") == "object":
-        return _generate_list_component(component_name, data, analysis, use_typescript)
+        return _generate_list_component(component_name, data, analysis, use_typescript, framework)
     elif data_type == "object":
-        return _generate_object_component(component_name, data, analysis, use_typescript)
+        return _generate_object_component(component_name, data, analysis, use_typescript, framework)
     elif data_type == "array":
-        return _generate_simple_list_component(component_name, data, analysis, use_typescript)
+        return _generate_simple_list_component(component_name, data, analysis, use_typescript, framework)
     else:
-        return _generate_value_component(component_name, data, use_typescript)
+        return _generate_value_component(component_name, data, use_typescript, framework)
 
 
 def _generate_list_component(
     name: str,
     data: List[dict],
     analysis: Dict[str, Any],
-    use_typescript: bool
+    use_typescript: bool,
+    framework: str = "react"
 ) -> str:
     """Generate a list component with cards/items"""
 
@@ -204,8 +209,9 @@ def _generate_list_component(
     # Generate component code
     ext = "tsx" if use_typescript else "jsx"
     props_type = f": {{ items: {name}Item[] }}" if use_typescript else ""
+    framework_import = "import React from 'react';" if framework == "react" else ""
 
-    code = f"""import React from 'react';
+    code = f"""{framework_import}
 
 {type_def}/**
  * {name} Component
@@ -289,14 +295,16 @@ def _generate_object_component(
     name: str,
     data: dict,
     analysis: Dict[str, Any],
-    use_typescript: bool
+    use_typescript: bool,
+    framework: str = "react"
 ) -> str:
     """Generate a component to display object data"""
 
     fields = analysis.get("fields", [])
     ext = "tsx" if use_typescript else "jsx"
+    framework_import = "import React from 'react';" if framework == "react" else ""
 
-    code = f"""import React from 'react';
+    code = f"""{framework_import}
 
 /**
  * {name} Component
@@ -341,13 +349,15 @@ def _generate_simple_list_component(
     name: str,
     data: List,
     analysis: Dict[str, Any],
-    use_typescript: bool
+    use_typescript: bool,
+    framework: str = "react"
 ) -> str:
     """Generate a simple list component for primitive values"""
 
     item_type = analysis.get("item_type", "string")
+    framework_import = "import React from 'react';" if framework == "react" else ""
 
-    code = f"""import React from 'react';
+    code = f"""{framework_import}
 
 /**
  * {name} Component
@@ -374,10 +384,12 @@ export function {name}() {{
     return code
 
 
-def _generate_value_component(name: str, data: Any, use_typescript: bool) -> str:
+def _generate_value_component(name: str, data: Any, use_typescript: bool, framework: str = "react") -> str:
     """Generate a component to display a single value"""
 
-    code = f"""import React from 'react';
+    framework_import = "import React from 'react';" if framework == "react" else ""
+
+    code = f"""{framework_import}
 
 /**
  * {name} Component
@@ -583,10 +595,11 @@ def generate_component_from_json(
     **kwargs
 ) -> ToolResult:
     """
-    Generate a React component from JSON data at the specified path.
+    Generate a component from JSON data at the specified path.
+    Defaults to React; pass framework="vue" or framework="svelte" for other frameworks.
 
     This tool intelligently analyzes the data structure and generates appropriate
-    React component code with REAL data from the JSON, not hardcoded placeholders.
+    component code with REAL data from the JSON, not hardcoded placeholders.
 
     **Use this instead of manually writing hardcoded data arrays!**
 
@@ -609,7 +622,7 @@ def generate_component_from_json(
         selected_source_id: If set, this source is pre-selected in UI
 
     Returns:
-        ToolResult with generated React component code
+        ToolResult with generated component code
     """
     if not source_id:
         return ToolResult(
@@ -661,8 +674,8 @@ def generate_component_from_json(
         # Analyze data structure
         analysis = analyze_data_structure(data)
 
-        # Generate component code
-        component_code = generate_react_component_code(
+        # Generate component code (defaults to React; pass framework="vue" or "svelte" for others)
+        component_code = generate_component_code(
             component_name,
             data,
             analysis,

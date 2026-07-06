@@ -235,7 +235,7 @@ Most AI cloning tools look at your page like a picture and **guess** the code. W
 - **Multi-Agent Architecture** - Specialized agents work in parallel for faster, more accurate results
 - **AI Code Generation** - Claude generates production-ready code from extracted data
 - **Live Preview** - Real-time code preview with BoxLite sandbox
-- **Framework Support** - Export to React, Next.js, Vue, or plain HTML
+- **Framework Support** - Export to React, Vue, Svelte, Astro, HTML, or Next.js (6 frameworks × 3 styling options)
 
 ### Multi-Agent System
 
