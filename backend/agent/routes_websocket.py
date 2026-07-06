@@ -185,6 +185,8 @@ async def websocket_endpoint(
                 message=chat_data.get("message", ""),
                 webcontainer_state=chat_data.get("webcontainer_state"),
                 selected_source_id=chat_data.get("selected_source_id"),
+                framework_type=chat_data.get("framework_type"),
+                styling_type=chat_data.get("styling_type"),
             )
 
     except asyncio.CancelledError:
@@ -220,6 +222,8 @@ async def _process_chat(
     message: str,
     webcontainer_state: Optional[dict] = None,
     selected_source_id: Optional[str] = None,
+    framework_type: Optional[str] = None,
+    styling_type: Optional[str] = None,
 ):
     """
     Process chat message with agent
@@ -231,12 +235,16 @@ async def _process_chat(
         message: User message
         webcontainer_state: WebContainer state
         selected_source_id: Selected cache source ID for context
+        framework_type: Target framework (react, vue, svelte, astro, html, nextjs)
+        styling_type: Styling approach (tailwind, css_modules, plain_css)
     """
     try:
         async for event in agent.process_message(
             message=message,
             webcontainer_state=webcontainer_state,
             selected_source_id=selected_source_id,
+            framework_type=framework_type,
+            styling_type=styling_type,
         ):
             event_type = event.get("type")
 

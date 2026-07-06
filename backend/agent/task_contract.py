@@ -17,6 +17,9 @@ from typing import Dict, Any, List, Optional, Literal
 from dataclasses import dataclass, field
 from enum import Enum
 
+from .framework_config import FrameworkType, StylingType, get_framework_config
+from .framework_prompts import get_framework_worker_prompt
+
 logger = logging.getLogger(__name__)
 
 
@@ -333,6 +336,10 @@ class TaskContract:
     worker_namespace: str  # e.g., "header", "hero", "footer"
     priority: int = 1
 
+    # Framework config (optional, defaults to React)
+    framework_type: FrameworkType = FrameworkType.REACT
+    styling_type: StylingType = StylingType.TAILWIND
+
     # Scope - File isolation
     base_path: str = "/src/components/sections"
     allowed_extensions: List[str] = field(default_factory=lambda: [".jsx", ".css", ".js"])
@@ -358,12 +365,14 @@ class TaskContract:
     acceptance: AcceptanceCriteria = field(default_factory=AcceptanceCriteria)
 
     def __post_init__(self):
-        """Set default deliverables based on namespace"""
+        """Set default deliverables based on namespace and framework"""
         if not self.deliverables:
             component_name = self._namespace_to_component_name()
+            config = get_framework_config(self.framework_type, self.styling_type)
+            ext = config.file_extension
             self.deliverables = [
                 FileDeliverable(
-                    path=f"{component_name}.jsx",
+                    path=f"{component_name}{ext}",
                     file_type="component",
                     required=True,
                 ),
@@ -435,7 +444,12 @@ class TaskContract:
     def generate_worker_prompt(self) -> str:
         """Generate the task prompt for Worker Agent"""
         component_name = self._namespace_to_component_name()
-        full_path = f"{self.base_path}/{self.worker_namespace}/{component_name}.jsx"
+        config = get_framework_config(self.framework_type, self.styling_type)
+        ext = config.file_extension
+        full_path = f"{self.base_path}/{self.worker_namespace}/{component_name}{ext}"
+
+        # Get framework-specific conversion rules
+        framework_rules = get_framework_worker_prompt(self.framework_type, self.styling_type)
 
         # Build images summary
         images_summary = ""
@@ -518,17 +532,23 @@ Use `query_section_data(jsonpath="$.css_rules")` to get all CSS rules.
         # Determine if CSS file is required
         css_required = "Yes" if has_css_rules else "Optional"
 
+        # Framework label
+        framework_label = self.framework_type.value.upper()
+
         return f"""## Task Contract: {self.contract_id}
 
 ### Your Identity
 - **Namespace**: `{self.worker_namespace}`
 - **Component Name**: `{component_name}`
+- **Framework**: {framework_label}
 - **You can ONLY write to**: `{self.base_path}/{self.worker_namespace}/*`
+
+{framework_rules}
 
 ### Required Deliverables
 | File | Type | Required |
 |------|------|----------|
-| `{full_path}` | React Component | Yes |
+| `{full_path}` | {framework_label} Component | Yes |
 | `{self.base_path}/{self.worker_namespace}/{component_name}.css` | Styles | {css_required} |
 
 ### Acceptance Criteria
@@ -606,11 +626,13 @@ class IntegrationPlan:
 
     Provides:
     - Component import order
-    - App.jsx template
+    - App entry file template
     - Shared styles
     """
     # Project setup
     framework: str = "react-vite"
+    framework_type: FrameworkType = FrameworkType.REACT
+    styling_type: StylingType = StylingType.TAILWIND
     entry_file: str = "/src/main.jsx"
     root_component: str = "/src/App.jsx"
     global_styles: str = "/src/index.css"
@@ -772,6 +794,8 @@ def create_task_contract(
     display_name: str,
     section_data: Dict[str, Any],
     priority: int = 1,
+    framework_type: FrameworkType = FrameworkType.REACT,
+    styling_type: StylingType = StylingType.TAILWIND,
 ) -> TaskContract:
     """
     Create a TaskContract from raw section data
@@ -782,6 +806,8 @@ def create_task_contract(
         display_name: Display name (e.g., "Header Navigation")
         section_data: Raw section data dict
         priority: Execution priority
+        framework_type: Target framework
+        styling_type: Styling approach
 
     Returns:
         Configured TaskContract
@@ -887,6 +913,8 @@ def create_task_contract(
         worker_namespace=namespace,
         priority=priority,
         section_data=enhanced,
+        framework_type=framework_type,
+        styling_type=styling_type,
     )
 
     return contract
@@ -915,6 +943,15 @@ def create_integration_plan(
         source_url=source_url,
         css_variables=css_variables or {},
     )
+
+    # Inherit framework from first contract
+    if contracts:
+        first = contracts[0]
+        plan.framework_type = first.framework_type
+        plan.styling_type = first.styling_type
+        config = get_framework_config(first.framework_type, first.styling_type)
+        plan.entry_file = f"/src/main{config.file_extension.replace('jsx', 'jsx').replace('tsx', 'tsx')}"
+        plan.framework = f"{first.framework_type.value}-{first.styling_type.value}"
 
     # Sort contracts by priority and type
     type_order = {

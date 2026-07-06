@@ -101,9 +101,13 @@ class AgentSession:
     # Configuration
     config: AgentConfig = field(default_factory=AgentConfig)
 
-    # 新增：多轮对话追踪
-    conversation_round: int = 0  # 当前对话轮次
-    last_file_operations: list = field(default_factory=list)  # 最近的文件操作记录
+    # Framework configuration
+    framework_type: Optional[Any] = None  # FrameworkType enum value
+    styling_type: Optional[Any] = None    # StylingType enum value
+
+    # 多轮对话追踪
+    conversation_round: int = 0
+    last_file_operations: list = field(default_factory=list)
 
 
 # ============================================
@@ -225,6 +229,8 @@ class ClaudeAgent:
         message: str,
         webcontainer_state: Optional[Dict[str, Any]] = None,
         selected_source_id: Optional[str] = None,
+        framework_type: Optional[str] = None,
+        styling_type: Optional[str] = None,
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
         Process user message and generate response
@@ -235,6 +241,8 @@ class ClaudeAgent:
             message: User message
             webcontainer_state: Current WebContainer state
             selected_source_id: Selected JSON source ID for reference data
+            framework_type: Target framework (react, vue, svelte, astro, html, nextjs)
+            styling_type: Styling approach (tailwind, css_modules, plain_css)
 
         Yields:
             Response events (text, tool_call, tool_result, done, error)
@@ -278,6 +286,22 @@ class ClaudeAgent:
 
             # Build system prompt
             base_prompt = get_system_prompt()
+
+            # Add framework context if provided
+            if framework_type or styling_type:
+                from .framework_config import FrameworkType, StylingType, get_framework_config
+                from .framework_prompts import get_framework_worker_prompt
+                try:
+                    ft = FrameworkType(framework_type) if framework_type else FrameworkType.REACT
+                    st = StylingType(styling_type) if styling_type else StylingType.TAILWIND
+                    config = get_framework_config(ft, st)
+                    framework_prompt = get_framework_worker_prompt(ft, st)
+                    base_prompt = f"{base_prompt}\n\n{framework_prompt}"
+                    self.session.framework_type = ft
+                    self.session.styling_type = st
+                    logger.info(f"[Agent] Framework: {ft.value}, Styling: {st.value}")
+                except (ValueError, KeyError) as e:
+                    logger.warning(f"[Agent] Invalid framework config: {e}, defaulting to React")
 
             # Add selected source context if available
             logger.info(f"[Process Message] selected_source_id = {selected_source_id}")

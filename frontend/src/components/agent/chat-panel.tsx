@@ -1059,9 +1059,13 @@ interface AttachedImage {
 function ChatInput({
   onSend,
   isLoading,
+  frameworkConfig,
+  onFrameworkConfigChange,
 }: {
-  onSend: (message: string, images?: string[]) => void;
+  onSend: (message: string, images?: string[], frameworkConfig?: { framework: string; styling: string }) => void;
   isLoading: boolean;
+  frameworkConfig?: { framework: string; styling: string };
+  onFrameworkConfigChange?: (config: { framework: string; styling: string }) => void;
 }) {
   const [input, setInput] = useState("");
   const [images, setImages] = useState<AttachedImage[]>([]);
@@ -1069,6 +1073,18 @@ function ChatInput({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
+
+  // Framework selection state
+  const [selectedFramework, setSelectedFramework] = useState(frameworkConfig?.framework || "react");
+  const [selectedStyling, setSelectedStyling] = useState(frameworkConfig?.styling || "tailwind");
+
+  // Sync with parent frameworkConfig
+  useEffect(() => {
+    if (frameworkConfig) {
+      setSelectedFramework(frameworkConfig.framework);
+      setSelectedStyling(frameworkConfig.styling);
+    }
+  }, [frameworkConfig]);
 
   // Fixed height - no auto-resize (keep 2 lines height)
   const adjustHeight = useCallback(() => {
@@ -1179,7 +1195,8 @@ function ChatInput({
 
     // Convert images to base64 strings for sending
     const imageBase64s = images.map(img => img.preview);
-    onSend(input.trim(), imageBase64s.length > 0 ? imageBase64s : undefined);
+    const config = { framework: selectedFramework, styling: selectedStyling };
+    onSend(input.trim(), imageBase64s.length > 0 ? imageBase64s : undefined, config);
 
     setInput("");
     setImages([]);
@@ -1281,7 +1298,57 @@ function ChatInput({
 
         {/* Bottom toolbar - fixed at bottom */}
         <div className="flex items-center justify-between px-2 pb-2">
-          {/* Plus button (left side) */}
+          {/* Framework selectors (left side) */}
+          <div className="flex items-center gap-1">
+            <select
+              value={selectedFramework}
+              onChange={(e) => {
+                const newFramework = e.target.value;
+                setSelectedFramework(newFramework);
+                onFrameworkConfigChange?.({ framework: newFramework, styling: selectedStyling });
+              }}
+              disabled={isLoading}
+              className={cn(
+                "text-xs px-1.5 py-1 rounded-md border",
+                "bg-white dark:bg-neutral-800",
+                "border-neutral-300 dark:border-neutral-600",
+                "text-neutral-700 dark:text-neutral-300",
+                "focus:outline-none focus:ring-1 focus:ring-neutral-400",
+                "disabled:opacity-50 disabled:cursor-not-allowed"
+              )}
+            >
+              <option value="react">React</option>
+              <option value="vue">Vue</option>
+              <option value="svelte">Svelte</option>
+              <option value="astro">Astro</option>
+              <option value="html">HTML</option>
+              <option value="nextjs">Next.js</option>
+            </select>
+
+            <select
+              value={selectedStyling}
+              onChange={(e) => {
+                const newStyling = e.target.value;
+                setSelectedStyling(newStyling);
+                onFrameworkConfigChange?.({ framework: selectedFramework, styling: newStyling });
+              }}
+              disabled={isLoading}
+              className={cn(
+                "text-xs px-1.5 py-1 rounded-md border",
+                "bg-white dark:bg-neutral-800",
+                "border-neutral-300 dark:border-neutral-600",
+                "text-neutral-700 dark:text-neutral-300",
+                "focus:outline-none focus:ring-1 focus:ring-neutral-400",
+                "disabled:opacity-50 disabled:cursor-not-allowed"
+              )}
+            >
+              <option value="tailwind">Tailwind</option>
+              <option value="css_modules">CSS Modules</option>
+              <option value="plain_css">Plain CSS</option>
+            </select>
+          </div>
+
+          {/* Plus button */}
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
@@ -1363,6 +1430,11 @@ export function NextingAgentChatPanel({
   const [startTime, setStartTime] = useState<number | null>(null);
   const [elapsedTime, setElapsedTime] = useState<number>(0);
   const [connectionState, setConnectionState] = useState<ConnectionState>("disconnected");
+  // Framework configuration state
+  const [frameworkConfig, setFrameworkConfig] = useState<{ framework: string; styling: string }>({
+    framework: "react",
+    styling: "tailwind",
+  });
   // Worker Agent state (Multi-Agent)
   const [workers, setWorkers] = useState<WorkerState[]>([]);
   // Source indicator collapsed state - auto-collapse when agent starts
@@ -2075,7 +2147,7 @@ export function NextingAgentChatPanel({
 
   // Handle send message via WebSocket
   const handleSend = useCallback(
-    async (content: string, images?: string[]) => {
+    async (content: string, images?: string[], msgFrameworkConfig?: { framework: string; styling: string }) => {
       const client = clientRef.current;
 
       // Check WebSocket connection
@@ -2191,7 +2263,7 @@ export function NextingAgentChatPanel({
         // BoxLite mode: use BoxLite state and client
         const boxliteClient = client as BoxLiteAgentClient;
         const currentBoxLiteState = boxliteStateRef.current;
-        boxliteClient.sendChat(content, currentBoxLiteState, selectedSource?.id, images);
+        boxliteClient.sendChat(content, currentBoxLiteState, selectedSource?.id, images, msgFrameworkConfig || frameworkConfig);
       } else {
         // WebContainer mode: use WebContainer state and client
         const wcClient = client as NextingAgentClient;
@@ -2227,7 +2299,7 @@ export function NextingAgentChatPanel({
           .slice(-5);  // Limit to last 5 errors to avoid too much context
 
         // Send message via WebSocket (include selectedSource.id, recent errors, and images for context)
-        wcClient.sendChat(content, wcState, selectedSource?.id, recentErrors, images);
+        wcClient.sendChat(content, wcState, selectedSource?.id, recentErrors, images, msgFrameworkConfig || frameworkConfig);
       }
     },
     [messages, onMessagesChange, getWebContainerState, onClearFileDiffs, generateId, selectedSource, mode]
@@ -2409,7 +2481,12 @@ export function NextingAgentChatPanel({
         <div className={cn(
           selectedSource && "rounded-t-none border-t-0"
         )}>
-          <ChatInput onSend={handleSend} isLoading={isLoading} />
+           <ChatInput
+             onSend={handleSend}
+             isLoading={isLoading}
+             frameworkConfig={frameworkConfig}
+             onFrameworkConfigChange={setFrameworkConfig}
+           />
         </div>
       </div>
     </div>
