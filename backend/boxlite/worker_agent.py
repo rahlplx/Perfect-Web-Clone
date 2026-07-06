@@ -26,6 +26,28 @@ from . import boxlite_tools
 
 logger = logging.getLogger(__name__)
 
+# ============================================
+# Framework Helpers (imported via importlib)
+# ============================================
+
+import importlib.util as _importlib_util
+
+_fc_path = os.path.join(os.path.dirname(__file__), "..", "agent", "framework_config.py")
+_fc_spec = _importlib_util.spec_from_file_location("framework_config", _fc_path)
+_fc_mod = _importlib_util.module_from_spec(_fc_spec)
+_fc_spec.loader.exec_module(_fc_mod)
+FrameworkType = _fc_mod.FrameworkType
+StylingType = _fc_mod.StylingType
+get_framework_config = _fc_mod.get_framework_config
+
+_fp_path = os.path.join(os.path.dirname(__file__), "..", "agent", "framework_prompts.py")
+_fp_spec = _importlib_util.spec_from_file_location("framework_prompts", _fp_path)
+_fp_mod = _importlib_util.module_from_spec(_fp_spec)
+_fp_spec.loader.exec_module(_fp_mod)
+get_framework_worker_prompt = _fp_mod.get_framework_worker_prompt
+get_framework_specific_rules = _fp_mod.get_framework_specific_rules
+get_styling_rules = _fp_mod.get_styling_rules
+
 
 # ============================================
 # Event Callbacks Type Definitions
@@ -95,6 +117,10 @@ class BoxLiteWorkerConfig:
     max_tokens: int = 8192
     max_iterations: int = 30
 
+    # Framework and styling configuration
+    framework: str = "react"
+    styling: str = "tailwind"
+
     # Display name for UI
     display_name: str = ""
 
@@ -145,7 +171,7 @@ class BoxLiteWorkerResult:
 WORKER_TOOLS = [
     {
         "name": "write_code",
-        "description": "Write React component code for your assigned section. This tool writes the file AND automatically marks the task complete. You MUST call this tool with actual code content.",
+        "description": "Write component code for your assigned section. This tool writes the file AND automatically marks the task complete. You MUST call this tool with actual code content.",
         "input_schema": {
             "type": "object",
             "properties": {
@@ -155,7 +181,7 @@ WORKER_TOOLS = [
                 },
                 "content": {
                     "type": "string",
-                    "description": "Complete React component code to write"
+                    "description": "Complete component code to write"
                 }
             },
             "required": ["path", "content"]
@@ -508,8 +534,18 @@ class BoxLiteWorkerAgent:
 
         Worker doesn't query data - all data is directly injected into prompt
         """
+        # Determine framework and styling
+        framework_str = self.config.context_data.get("framework", self.config.framework)
+        styling_str = self.config.context_data.get("styling", self.config.styling)
+        framework = FrameworkType(framework_str)
+        styling = StylingType(styling_str)
+        fw_config = get_framework_config(framework, styling)
+        ext = fw_config.file_extension
+        framework_name = framework.value.upper()
+        framework_label = framework.value.capitalize()
+
         component_name = self._get_component_name()
-        full_path = f"{self.base_path}/{self.namespace}/{component_name}.jsx"
+        full_path = f"{self.base_path}/{self.namespace}/{component_name}{ext}"
 
         # Get section data from context
         # Note: All URLs in raw_html have been pre-resolved to absolute URLs by BoxLiteMCPExecutor
@@ -558,7 +594,11 @@ Simply use them exactly as they appear in the HTML - no conversion needed.
 ```
 """
 
-        return f"""You are an **HTML → JSX CONVERTER**, NOT a content creator.
+        # Get framework-specific conversion and styling rules
+        fw_rules = get_framework_specific_rules(framework)
+        style_rules = get_styling_rules(styling)
+
+        return f"""You are an **HTML → {framework_name} CONVERTER**, NOT a content creator.
 
 ## ⛔ CRITICAL RULE: YOU ARE A CONVERTER, NOT A CREATOR
 
@@ -571,11 +611,11 @@ Simply use them exactly as they appear in the HTML - no conversion needed.
 - ❌ Simplify or summarize the content
 
 **YOU MUST:**
-- ✅ Convert the provided HTML to JSX syntax EXACTLY
+- ✅ Convert the provided HTML to {framework_name} syntax EXACTLY
 - ✅ Keep ALL text content word-for-word
 - ✅ Keep ALL URLs exactly as they appear (they are already absolute)
 - ✅ Keep ALL class names, IDs, and attributes
-- ✅ Convert HTML attributes to JSX (class → className, for → htmlFor, etc.)
+- ✅ Follow the {framework_name} conversion rules below
 
 ## 📋 YOUR ASSIGNMENT
 
@@ -589,44 +629,28 @@ Simply use them exactly as they appear in the HTML - no conversion needed.
 **You can ONLY write to:** `{self.base_path}/{self.namespace}/`
 
 ✅ ALLOWED: `{full_path}`
-❌ FORBIDDEN: `/src/App.jsx`, `/src/main.jsx`, `/package.json`
+❌ FORBIDDEN: `/src/App{ext}`, `/src/main{ext}`, `/package.json`
 
 ## 🔄 CONVERSION RULES
 
-| HTML | JSX |
-|------|-----|
-| `class="..."` | `className="..."` |
-| `for="..."` | `htmlFor="..."` |
-| `onclick="..."` | `onClick={{...}}` |
-| `<img src="...">` | `<img src="..." />` |
-| `<!--comment-->` | `{{/* comment */}}` |
-| `style="color: red"` | `style={{{{ color: 'red' }}}}` |
+{fw_rules}
+{style_rules}
 
 ## 🎮 INTERACTIVE ELEMENTS
 
-If you see interactive elements (modals, dropdowns, accordions, mobile menus, etc.), you may add `useState` to make them functional. For modals/popups, default to hidden state so they don't block content.
+If you see interactive elements (modals, dropdowns, accordions, mobile menus, etc.), add appropriate interactivity using {framework_label}'s patterns. For modals/popups, default to hidden state so they don't block content.
 
-**CRITICAL**: If a component can be closed (modal, popup, banner, notification, etc.), it MUST have working close functionality. Look for close buttons (×, X, close icons) and add `onClick` handlers. A closeable element that cannot be closed is broken.
+**CRITICAL**: If a component can be closed (modal, popup, banner, notification, etc.), it MUST have working close functionality. Look for close buttons (×, X, close icons) and add appropriate event handlers. A closeable element that cannot be closed is broken.
 
 ## 🛠️ YOUR TOOL
 
-**write_code(path, content)**: Write your React component. This auto-completes the task.
+**write_code(path, content)**: Write your {framework_name} component. This auto-completes the task.
 
 {html_section}{media_section}{styles_section}
 
 ## ✅ REQUIRED OUTPUT FORMAT
 
-```jsx
-// File: {full_path}
-import React from 'react';
-
-export default function {component_name}() {{
-  return (
-    // CONVERTED JSX from the HTML above
-    // Every URL, every text, every attribute must match EXACTLY
-  );
-}}
-```
+Provide complete, working code for the {framework_label} framework. Follow the conversion rules above.
 
 ## ⚠️ VALIDATION CHECKLIST
 
@@ -637,9 +661,9 @@ Before calling write_code, verify your code:
 4. [ ] No placeholder content added
 5. [ ] No made-up URLs - use only the URLs that appear in the provided HTML
 
-**IMPORTANT**: Call `write_code` with your COMPLETE React component code. This will write the file AND complete your task.
+**IMPORTANT**: Call `write_code` with your COMPLETE component code. This will write the file AND complete your task.
 
-**BEGIN NOW**: Convert the HTML to JSX and call write_code."""
+**BEGIN NOW**: Convert the HTML to {framework_name} and call write_code."""
 
     def _build_initial_prompt(self, retry_attempt: int = 0) -> str:
         """
@@ -648,8 +672,17 @@ Before calling write_code, verify your code:
         Args:
             retry_attempt: Current retry attempt number (0 = first attempt)
         """
+        # Determine framework
+        framework_str = self.config.context_data.get("framework", self.config.framework)
+        styling_str = self.config.context_data.get("styling", self.config.styling)
+        framework = FrameworkType(framework_str)
+        styling = StylingType(styling_str)
+        fw_config = get_framework_config(framework, styling)
+        ext = fw_config.file_extension
+        framework_name = framework.value.upper()
+
         component_name = self._get_component_name()
-        full_path = f"{self.base_path}/{self.namespace}/{component_name}.jsx"
+        full_path = f"{self.base_path}/{self.namespace}/{component_name}{ext}"
 
         # Get data stats from context
         section_data = self.config.context_data.get("section_data", {})
@@ -663,7 +696,7 @@ Before calling write_code, verify your code:
             retry_warning = f"""
 ⚠️ **RETRY ATTEMPT {retry_attempt}**
 
-Previous attempt failed. You MUST call `write_code` with actual React component code.
+Previous attempt failed. You MUST call `write_code` with actual component code.
 Do NOT just respond with text - you MUST call the write_code tool.
 
 """
@@ -681,12 +714,12 @@ Do NOT just respond with text - you MUST call the write_code tool.
 ### Instructions
 
 1. **Read** the HTML in the system prompt
-2. **Convert** to React JSX (keep ALL text, URLs, classes exactly)
+2. **Convert** to {framework_name} (keep ALL text, URLs, classes exactly)
 3. **Call** `write_code(path="{full_path}", content=YOUR_CODE)`
 
 **IMPORTANT**: You MUST call `write_code` with actual code. This writes the file and completes your task.
 
-**Begin now** - convert the HTML to JSX and call write_code."""
+**Begin now** - convert the HTML to {framework_name} and call write_code."""
 
     # ============================================
     # Agent Loop
@@ -865,7 +898,7 @@ Do NOT just respond with text - you MUST call the write_code tool.
         # Validate content has actual code (not just comments)
         content_stripped = content.strip()
         if len(content_stripped) < 50:
-            return f"Error: content too short ({len(content_stripped)} chars). Write actual React component code."
+            return f"Error: content too short ({len(content_stripped)} chars). Write actual component code."
 
         # Normalize and validate path
         path = self._normalize_path(path)

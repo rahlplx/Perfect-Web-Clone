@@ -116,7 +116,7 @@ class ReplayRecorder:
         # During agent execution:
         recorder.record_thinking("Analyzing the page...")
         recorder.record_tool_call("get_layout", {"source_id": "xxx"})
-        recorder.record_file_written("/src/App.jsx", content)
+        recorder.record_file_written("/src/App.jsx", content)  # Or App.vue, App.svelte for other frameworks
 
         # After completion:
         replay_data = recorder.export()

@@ -342,20 +342,10 @@ class TaskContract:
 
     # Scope - File isolation
     base_path: str = "/src/components/sections"
-    allowed_extensions: List[str] = field(default_factory=lambda: [".jsx", ".css", ".js"])
-    forbidden_paths: List[str] = field(default_factory=lambda: [
-        "/src/App.jsx",
-        "/src/main.jsx",
-        "/src/index.css",
-        "/package.json",
-    ])
     can_create_subdirs: bool = True
 
     # Input
     section_data: EnhancedSectionData = None
-    shared_imports: List[str] = field(default_factory=lambda: [
-        "import React from 'react'",
-    ])
     style_tokens: Dict[str, str] = field(default_factory=dict)  # CSS variables
 
     # Deliverables
@@ -388,6 +378,32 @@ class TaskContract:
             self.acceptance.required_exports = [self._namespace_to_component_name()]
             self.acceptance.min_images = len(self.section_data.images)
             self.acceptance.min_links = len(self.section_data.links)
+
+    @property
+    def allowed_extensions(self) -> List[str]:
+        config = get_framework_config(self.framework_type, self.styling_type)
+        return config.allowed_extensions
+
+    @property
+    def forbidden_paths(self) -> List[str]:
+        config = get_framework_config(self.framework_type, self.styling_type)
+        return [config.entry_path, config.root_component_path]
+
+    @property
+    def shared_imports(self) -> List[str]:
+        config = get_framework_config(self.framework_type, self.styling_type)
+        default = config.default_import
+        return [default] if default else []
+
+    @property
+    def entry_path(self) -> str:
+        config = get_framework_config(self.framework_type, self.styling_type)
+        return config.entry_path
+
+    @property
+    def root_component_path(self) -> str:
+        config = get_framework_config(self.framework_type, self.styling_type)
+        return config.root_component_path
 
     def _namespace_to_component_name(self) -> str:
         """Convert namespace to component name"""
@@ -633,31 +649,17 @@ class IntegrationPlan:
     framework: str = "react-vite"
     framework_type: FrameworkType = FrameworkType.REACT
     styling_type: StylingType = StylingType.TAILWIND
-    entry_file: str = "/src/main.jsx"
-    root_component: str = "/src/App.jsx"
     global_styles: str = "/src/index.css"
 
-    @staticmethod
-    def _entry_for(framework: FrameworkType) -> str:
-        if framework == FrameworkType.NEXTJS:
-            return "/pages/index.tsx"
-        if framework == FrameworkType.ASTRO:
-            return "/src/pages/index.astro"
-        return "/src/main.jsx"
+    @property
+    def entry_file(self) -> str:
+        config = get_framework_config(self.framework_type, self.styling_type)
+        return config.entry_path
 
-    @staticmethod
-    def _root_component_for(framework: FrameworkType) -> str:
-        if framework == FrameworkType.VUE:
-            return "/src/App.vue"
-        if framework == FrameworkType.SVELTE:
-            return "/src/App.svelte"
-        if framework == FrameworkType.ASTRO:
-            return "/src/layouts/Layout.astro"
-        if framework == FrameworkType.HTML:
-            return "/index.html"
-        if framework == FrameworkType.NEXTJS:
-            return "/pages/_app.tsx"
-        return "/src/App.jsx"
+    @property
+    def root_component(self) -> str:
+        config = get_framework_config(self.framework_type, self.styling_type)
+        return config.root_component_path
 
     @staticmethod
     def _global_styles_for(framework: FrameworkType, styling: StylingType) -> str:
@@ -699,18 +701,71 @@ class IntegrationPlan:
             },
         }
 
-    def generate_app_jsx(self) -> str:
-        """Generate App.jsx content"""
-        # Generate imports
-        imports = ["import React from 'react'", "import './index.css'"]
+    def generate_root_component(self) -> str:
+        """Generate root component content based on framework"""
+        if self.framework_type == FrameworkType.VUE:
+            lines = ["<template>"]
+            lines.append('  <div class="app">')
+            for comp in self.components:
+                lines.append(f'    <{comp.import_name} />')
+            lines.append('  </div>')
+            lines.append("</template>")
+            lines.append("")
+            lines.append("<script setup>")
+            for comp in self.components:
+                lines.append(f"import {comp.import_name} from '{comp.import_path}'")
+            lines.append("</script>")
+            return "\n".join(lines)
+
+        if self.framework_type == FrameworkType.SVELTE:
+            lines = ['<div class="app">']
+            for comp in self.components:
+                lines.append(f'  <{comp.import_name} />')
+            lines.append('</div>')
+            lines.append("")
+            lines.append("<script>")
+            for comp in self.components:
+                lines.append(f"import {comp.import_name} from '{comp.import_path}'")
+            lines.append("</script>")
+            return "\n".join(lines)
+
+        if self.framework_type == FrameworkType.ASTRO:
+            lines = ["---"]
+            for comp in self.components:
+                lines.append(f"import {comp.import_name} from '{comp.import_path}'")
+            lines.append("---")
+            lines.append("")
+            lines.append('<div class="app">')
+            for comp in self.components:
+                lines.append(f'  <{comp.import_name} />')
+            lines.append('</div>')
+            return "\n".join(lines)
+
+        if self.framework_type == FrameworkType.HTML:
+            lines = ['<!DOCTYPE html>',
+                     '<html lang="en">',
+                     '<head>',
+                     '  <meta charset="UTF-8" />',
+                     '  <meta name="viewport" content="width=device-width, initial-scale=1.0" />',
+                     f'  <title>{self.page_title or "Cloned Project"}</title>',
+                     f'  <link rel="stylesheet" href="{self.global_styles or "/src/style.css"}" />',
+                     '</head>',
+                     '<body>']
+            lines.append('  <div id="app"></div>')
+            lines.append('  <script type="module" src="/src/main.js"></script>')
+            lines.append('</body>')
+            lines.append('</html>')
+            return "\n".join(lines)
+
+        # Default JSX (React, Next.js)
+        imports = []
+        if self.framework_type in (FrameworkType.REACT, FrameworkType.NEXTJS):
+            imports.append("import React from 'react'")
+        imports.append(f"import '{self.global_styles}'")
         for comp in self.components:
             imports.append(f"import {comp.import_name} from '{comp.import_path}'")
 
-        # Generate component JSX
-        component_jsx = []
-        for comp in self.components:
-            component_jsx.append(f"      <{comp.import_name} />")
-
+        component_jsx = [f"      <{comp.import_name} />" for comp in self.components]
         imports_str = "\n".join(imports)
         components_str = "\n".join(component_jsx)
 
@@ -769,8 +824,43 @@ a {{
 }}
 """
 
-    def generate_main_jsx(self) -> str:
-        """Generate main.jsx content"""
+    def generate_entry_file(self) -> str:
+        """Generate entry file content based on framework"""
+        if self.framework_type == FrameworkType.VUE:
+            return """import { createApp } from 'vue'
+import App from './App.vue'
+import './style.css'
+
+createApp(App).mount('#app')
+"""
+
+        if self.framework_type == FrameworkType.SVELTE:
+            return """import App from './App.svelte'
+
+const app = new App({
+  target: document.getElementById('app'),
+})
+
+export default app
+"""
+
+        if self.framework_type == FrameworkType.HTML:
+            return """import './index.css'
+"""
+
+        if self.framework_type == FrameworkType.NEXTJS:
+            return """import type { AppProps } from 'next/app'
+import '../styles/globals.css'
+
+export default function App({ Component, pageProps }: AppProps) {
+  return <Component {...pageProps} />
+}
+"""
+
+        if self.framework_type == FrameworkType.ASTRO:
+            return ""  # Astro uses pages/index.astro as entry
+
+        # Default React entry
         return """import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
@@ -825,6 +915,8 @@ export default defineConfig({
   plugins: [svelte()],
 })
 """
+        if self.framework_type in (FrameworkType.NEXTJS, FrameworkType.ASTRO, FrameworkType.HTML):
+            return ""  # No Vite config needed
         return """import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
@@ -999,9 +1091,6 @@ def create_integration_plan(
         first = contracts[0]
         plan.framework_type = first.framework_type
         plan.styling_type = first.styling_type
-        config = get_framework_config(first.framework_type, first.styling_type)
-        plan.entry_file = IntegrationPlan._entry_for(first.framework_type)
-        plan.root_component = IntegrationPlan._root_component_for(first.framework_type)
         plan.global_styles = IntegrationPlan._global_styles_for(first.framework_type, first.styling_type)
         plan.framework = f"{first.framework_type.value}-{first.styling_type.value}"
 

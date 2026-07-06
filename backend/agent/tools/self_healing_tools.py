@@ -133,7 +133,7 @@ def _collect_all_errors(webcontainer_state: Dict) -> List[Dict]:
             continue
         seen_errors.add(content_hash)
 
-        # Skip React development warnings (noise)
+        # Skip development warnings (framework-agnostic noise filter)
         if "Warning:" in content or "DevTools" in content:
             continue
 

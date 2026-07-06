@@ -277,7 +277,7 @@ IMPORTANT:
 - Results may be summarized if content is large
 
 Examples:
-- web_fetch(url="https://react.dev/learn", prompt="What are React Hooks?")
+- web_fetch(url="https://developer.mozilla.org/en-US/docs/Web/HTML", prompt="Explain HTML semantics")
 - web_fetch(url="https://api.github.com", prompt="List available API endpoints")""",
             "input_schema": {
                 "type": "object",
@@ -310,7 +310,7 @@ Examples:
 Returns search results with titles, URLs, and descriptions.
 
 Use cases:
-- Find documentation: web_search(query="React hooks documentation 2025")
+- Find documentation: web_search(query="JavaScript array methods documentation")
 - Search for errors: web_search(query="TypeError Cannot read property of undefined")
 - Find examples: web_search(query="Next.js API routes example")
 - Get latest info: web_search(query="latest Node.js version", time_range="week")

@@ -30,6 +30,10 @@ from datetime import datetime
 import anthropic
 from openai import AsyncOpenAI, APIError as OpenAIAPIError
 
+# Framework configuration (framework-agnostic support)
+from .framework_config import get_framework_config, FrameworkType, StylingType
+from .framework_prompts import get_framework_worker_prompt
+
 # Debug module (modular, controlled by SECTION_DEBUG env var)
 from .section_debug import record_checkpoint, debug_log
 
@@ -160,6 +164,12 @@ class WorkerConfig:
     # TaskContract prompt (if provided, overrides default prompt)
     task_contract_prompt: str = ""
 
+    # Target framework for code generation
+    framework_type: str = "react"  # Supported: react, vue, svelte, astro, html, nextjs
+
+    # Styling approach for code generation
+    styling_type: str = "tailwind"  # Supported: tailwind, css_modules, plain_css
+
     # Display name for UI (human-friendly, e.g., "Navigation", "Section 1")
     display_name: str = ""
 
@@ -212,17 +222,17 @@ class WorkerResult:
 WORKER_TOOLS = [
     {
         "name": "write_code",
-        "description": "Write code to a file. Use this to generate React component code for your assigned section.",
+        "description": "Write code to a file. Use this to generate code for your assigned section in the target framework.",
         "input_schema": {
             "type": "object",
             "properties": {
                 "path": {
                     "type": "string",
-                    "description": "File path relative to project root (e.g., src/components/sections/header_0/Header0Section.jsx)"
+                    "description": "File path relative to project root (e.g., src/components/sections/header_0/Header0Section)"
                 },
                 "content": {
                     "type": "string",
-                    "description": "Complete file content to write"
+                    "description": "Complete component code to write"
                 },
                 "description": {
                     "type": "string",
@@ -728,7 +738,7 @@ class WorkerAgent:
 
 ## 🎯 Task Description
 
-{self.config.task_description or "Convert HTML to React JSX component"}
+{self.config.task_description or "Convert HTML to component code"}
 
 ## 🔧 Design Requirements
 
@@ -777,9 +787,20 @@ class WorkerAgent:
         if self.config.task_contract_prompt:
             return self.config.task_contract_prompt
 
+        # Get framework-specific configuration and rules
+        fc = get_framework_config(
+            FrameworkType(self.config.framework_type),
+            StylingType(self.config.styling_type),
+        )
+        ext = fc.file_extension
+        framework_prompt = get_framework_worker_prompt(
+            FrameworkType(self.config.framework_type),
+            StylingType(self.config.styling_type),
+        )
+
         # Get component name from namespace
         component_name = self._get_component_name()
-        full_path = f"{self.base_path}/{self.namespace}/{component_name}.jsx"
+        full_path = f"{self.base_path}/{self.namespace}/{component_name}{ext}"
 
         # 获取完整的 section 数据
         section_data = self.config.section_data
@@ -857,7 +878,10 @@ This section contains:
 **Content Preview**: {text_preview}
 """
 
-        return f"""You are an **HTML → JSX CONVERTER**, NOT a content creator.
+        converter_label = "code" if ext == ".html" else f"{ext[1:].upper()} component"
+        output_syntax = "HTML" if ext == ".html" else "the target framework syntax"
+
+        return f"""{framework_prompt}
 
 ## ⛔ CRITICAL RULE: YOU ARE A CONVERTER, NOT A CREATOR
 
@@ -870,11 +894,10 @@ This section contains:
 - ❌ Simplify or summarize the content
 
 **YOU MUST:**
-- ✅ Convert the provided HTML to JSX syntax EXACTLY
+- ✅ Convert the provided HTML to {output_syntax} EXACTLY
 - ✅ Keep ALL text content word-for-word
 - ✅ Keep ALL URLs exactly as provided
 - ✅ Keep ALL class names, IDs, and attributes
-- ✅ Convert HTML attributes to JSX (class → className, for → htmlFor, etc.)
 
 ## 📋 YOUR ASSIGNMENT
 
@@ -882,6 +905,7 @@ This section contains:
 - **Namespace**: `{self.namespace}`
 - **Component Name**: `{component_name}`
 - **Output Path**: `{full_path}`
+- **Framework**: `{self.config.framework_type}`
 
 ## 📁 FILE PATH CONSTRAINTS
 
@@ -890,33 +914,21 @@ This section contains:
 ✅ ALLOWED: `{full_path}`
 ❌ FORBIDDEN: `/src/App.jsx`, `/src/main.jsx`, `/package.json`
 
-## 🔄 CONVERSION RULES
-
-| HTML | JSX |
-|------|-----|
-| `class="..."` | `className="..."` |
-| `for="..."` | `htmlFor="..."` |
-| `onclick="..."` | `onClick={{...}}` |
-| `<img src="...">` | `<img src="..." />` |
-| `<!--comment-->` | `{{/* comment */}}` |
-| `style="color: red"` | `style={{{{ color: 'red' }}}}` |
-
 ## 🛠️ YOUR TOOLS
 
-1. **write_code(path, content)**: Write your converted React component
+1. **write_code(path, content)**: Write your converted {converter_label}
 2. **complete_task(summary)**: Mark task complete
 
 {html_section}{media_section}{styles_section}{text_section}
 
 ## ✅ REQUIRED OUTPUT FORMAT
 
-```jsx
+```{ext[1:] if ext else "jsx"}
 // File: {full_path}
-import React from 'react';
 
 export default function {component_name}() {{
   return (
-    // CONVERTED JSX from the HTML above
+    // CONVERTED CODE from the HTML above
     // Every URL, every text, every attribute must match EXACTLY
   );
 }}
@@ -932,7 +944,7 @@ Before calling complete_task, verify:
 5. [ ] No content was omitted or summarized
 6. [ ] External image URLs use proxy format: `/proxy-image?url=<encoded_url>`
 
-**BEGIN NOW**: Convert the HTML above to JSX and write the component."""
+**BEGIN NOW**: Convert the HTML above to {output_syntax} and write the component."""
 
     def _get_component_name(self) -> str:
         """Generate component name from namespace"""
@@ -942,6 +954,16 @@ Before calling complete_task, verify:
         if not pascal.endswith("Section"):
             pascal += "Section"
         return pascal
+
+    def _get_output_path(self) -> str:
+        """Get the full output path with framework-appropriate file extension."""
+        from .framework_config import get_framework_config, FrameworkType, StylingType
+        fc = get_framework_config(
+            FrameworkType(self.config.framework_type),
+            StylingType(self.config.styling_type),
+        )
+        component_name = self._get_component_name()
+        return f"{self.base_path}/{self.namespace}/{component_name}{fc.file_extension}"
 
     def _build_initial_prompt(self, retry_attempt: int = 0) -> str:
         """
@@ -954,7 +976,7 @@ Before calling complete_task, verify:
             retry_attempt: Current retry attempt number (0 = first attempt)
         """
         component_name = self._get_component_name()
-        full_path = f"{self.base_path}/{self.namespace}/{component_name}.jsx"
+        full_path = self._get_output_path()
 
         # 获取数据统计
         images = self.config.section_data.get("images", [])
@@ -987,7 +1009,7 @@ Previous attempt failed to generate any files. You MUST:
 ### Instructions
 
 1. **Read** the HTML, images, and links data in the system prompt above
-2. **Create** a React component that exactly replicates the original
+2. **Create** a component that exactly replicates the original
 3. **Write** to `{full_path}` using `write_code` ⚠️ REQUIRED
 4. **Complete** using `complete_task`
 

@@ -335,7 +335,7 @@ Supports wildcards:
 Examples:
 - grep(pattern="function\\s+\\w+") - Find function definitions
 - grep(pattern="TODO|FIXME", ignore_case=true) - Find todos
-- grep(pattern="import.*React", file_pattern="*.jsx") - Find React imports in JSX files
+- grep(pattern="import.*Component", file_pattern="*.{jsx,tsx,vue,svelte}") - Find component imports
 
 Features:
 - Regex support with full syntax

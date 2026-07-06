@@ -12,7 +12,7 @@ Security:
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, Optional, Any
+from typing import Dict, List, Optional, Any
 
 
 class FrameworkType(Enum):
@@ -37,6 +37,10 @@ class FrameworkConfig:
     file_extension: str
     vite_plugin: Optional[str]
     package_dependencies: Dict[str, Any] = field(default_factory=dict)
+    allowed_extensions: List[str] = field(default_factory=lambda: [".jsx", ".css", ".js"])
+    default_import: str = ""
+    entry_path: str = ""
+    root_component_path: str = ""
 
     def __hash__(self):
         return hash((
@@ -153,6 +157,43 @@ _FrameworkVitePlugins = {
 }
 
 
+_FrameworkAllowedExtensions = {
+    FrameworkType.REACT: [".jsx", ".css", ".js"],
+    FrameworkType.VUE: [".vue", ".css", ".js"],
+    FrameworkType.SVELTE: [".svelte", ".css", ".js"],
+    FrameworkType.ASTRO: [".astro", ".css", ".js"],
+    FrameworkType.HTML: [".html", ".css", ".js"],
+    FrameworkType.NEXTJS: [".tsx", ".css", ".ts"],
+}
+
+_FrameworkDefaultImports = {
+    FrameworkType.REACT: "import React from 'react'",
+    FrameworkType.VUE: "",
+    FrameworkType.SVELTE: "",
+    FrameworkType.ASTRO: "",
+    FrameworkType.HTML: "",
+    FrameworkType.NEXTJS: "import React from 'react'",
+}
+
+_FrameworkEntryPaths = {
+    FrameworkType.REACT: "/src/main.jsx",
+    FrameworkType.VUE: "/src/main.js",
+    FrameworkType.SVELTE: "/src/main.js",
+    FrameworkType.ASTRO: "/src/pages/index.astro",
+    FrameworkType.HTML: "/index.html",
+    FrameworkType.NEXTJS: "/pages/index.tsx",
+}
+
+_FrameworkRootComponentPaths = {
+    FrameworkType.REACT: "/src/App.jsx",
+    FrameworkType.VUE: "/src/App.vue",
+    FrameworkType.SVELTE: "/src/App.svelte",
+    FrameworkType.ASTRO: "/src/layouts/Layout.astro",
+    FrameworkType.HTML: "/index.html",
+    FrameworkType.NEXTJS: "/pages/_app.tsx",
+}
+
+
 def get_framework_config(framework: FrameworkType, styling: StylingType) -> FrameworkConfig:
     if not isinstance(framework, FrameworkType):
         raise ValueError(f"Invalid framework: {framework}")
@@ -178,6 +219,10 @@ def get_framework_config(framework: FrameworkType, styling: StylingType) -> Fram
             "dependencies": ext_deps,
             "devDependencies": ext_dev_deps,
         },
+        allowed_extensions=_FrameworkAllowedExtensions[framework],
+        default_import=_FrameworkDefaultImports[framework],
+        entry_path=_FrameworkEntryPaths[framework],
+        root_component_path=_FrameworkRootComponentPaths[framework],
     )
 
 

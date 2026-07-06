@@ -500,8 +500,8 @@ class BoxLiteMCPExecutor:
 
         Args:
             pattern: Search pattern
-                - For file search: glob pattern (e.g., "**/*.jsx", "src/**/*.css")
-                - For content search: regex pattern (e.g., "import.*React", "className=")
+                - For file search: glob pattern (e.g., "**/*.{jsx,vue,svelte,astro}", "src/**/*.css")
+                - For content search: regex pattern (e.g., "import.*Component", "className=")
             path: Directory to search in (default "/")
             mode: "files" (glob) or "content" (grep), auto-detected if not specified
             output_mode: "files_with_matches" (default) or "content" (show matching lines)
@@ -793,6 +793,12 @@ class BoxLiteMCPExecutor:
         "crypto", "buffer", "url", "querystring", "assert", "child_process",
         # React ecosystem (usually pre-installed)
         "react", "react-dom", "react/jsx-runtime",
+        # Vue ecosystem
+        "vue", "@vue/runtime-core",
+        # Svelte ecosystem
+        "svelte", "svelte/internal",
+        # Astro ecosystem
+        "astro",
         # Common aliases
         "prop-types",
     }
@@ -807,6 +813,15 @@ class BoxLiteMCPExecutor:
         "@headlessui/react", "@radix-ui/react-dialog",
         "react-router-dom", "react-hook-form", "zod",
         "swr", "react-query", "@tanstack/react-query",
+        # Vue ecosystem packages
+        "vue-router", "pinia", "vuex", "@vueuse/core",
+        "nuxt", "vee-validate", "vue-multiselect",
+        # Svelte ecosystem packages
+        "svelte-routing", "svelte-store", "svelte-fa",
+        "svelte-awesome", "svelte-carousel",
+        # Astro ecosystem packages
+        "@astrojs/react", "@astrojs/vue", "@astrojs/svelte",
+        "astro-icon",
     }
 
     def _extract_npm_imports(self, content: str) -> set:
@@ -1475,7 +1490,7 @@ class BoxLiteMCPExecutor:
                     "section_type": section_type,
                     "display_name": original_name,
                     "task_description": contract.generate_worker_prompt()[:500] + "...",
-                    "target_files": [contract.get_allowed_path(f"{contract._namespace_to_component_name()}.jsx")],
+                    "target_files": [contract.get_allowed_path(f"{contract._namespace_to_component_name()}.jsx")],  # TODO: make extension configurable per framework
                     "_task_contract": contract.to_dict(),
                     "_section_data": section_data,
                 })
@@ -1785,6 +1800,7 @@ class BoxLiteMCPExecutor:
             # ============================================
             logger.info(f"[spawn_section_workers] Starting AUTO-INTEGRATION...")
 
+            entry_file: str = "/src/App.jsx"
             try:
                 # ========================================
                 # 方案 B：扫描 sandbox 中实际存在的 section 文件
@@ -1837,15 +1853,28 @@ class BoxLiteMCPExecutor:
                 logger.info(f"[spawn_section_workers] Total components found: {len(section_components)}")
 
                 # ========================================
-                # 生成 App.jsx（不依赖 IntegrationPlan）
+                # 生成 App entry file (framework-aware, defaults to React)
                 # ========================================
+                # Default to React; framework can be set via sandbox config
+                framework = getattr(self.sandbox, 'framework', 'react').lower()
+                entry_file: str = "/src/App.jsx"  # default for React, overridden per framework below
+
                 if section_components:
-                    # 构建 imports
-                    imports = ["import React from 'react'", "import './index.css'"]
+                    imports = []
+
+                    if framework == 'react':
+                        imports = ["import React from 'react'", "import './index.css'"]
+                    elif framework == 'vue':
+                        imports = ["import './index.css'"]
+                    elif framework == 'svelte':
+                        imports = ["import './index.css'"]
+                    else:
+                        imports = ["import React from 'react'", "import './index.css'"]
+
                     for comp in section_components:
                         imports.append(f"import {comp['name']} from '{comp['import_path']}'")
 
-                    # 构建 JSX
+                    # 构建 JSX / template
                     jsx_components = []
                     for comp in section_components:
                         jsx_components.append(f"      <{comp['name']} />")
@@ -1865,16 +1894,16 @@ function App() {{
 
 export default App
 """
-                    logger.info(f"[spawn_section_workers] Generated App.jsx with {len(section_components)} components")
-                    app_success = await self.sandbox.write_file("/src/App.jsx", app_jsx_content)
+                    logger.info(f"[spawn_section_workers] Generated {entry_file} with {len(section_components)} components")
+                    app_success = await self.sandbox.write_file(entry_file, app_jsx_content)
                     if app_success:
-                        files_written.append("/src/App.jsx")
-                        logger.info(f"[spawn_section_workers] ✓ Wrote /src/App.jsx")
+                        files_written.append(entry_file)
+                        logger.info(f"[spawn_section_workers] ✓ Wrote {entry_file}")
                     else:
-                        write_errors.append("Failed to write /src/App.jsx")
-                        logger.error(f"[spawn_section_workers] ✗ Failed to write /src/App.jsx")
+                        write_errors.append(f"Failed to write {entry_file}")
+                        logger.error(f"[spawn_section_workers] ✗ Failed to write {entry_file}")
                 else:
-                    logger.warning(f"[spawn_section_workers] No section components found, skipping App.jsx generation")
+                    logger.warning(f"[spawn_section_workers] No section components found, skipping entry file generation")
                     write_errors.append("No section components found in sandbox")
 
                 # ========================================
@@ -1999,7 +2028,7 @@ a {
 
             # Build result summary
             section_files = [f for f in files_written if "/sections/" in f]
-            integration_files = [f for f in files_written if f in ["/src/App.jsx", "/src/index.css", "/src/styles/original.css"]]
+            integration_files = [f for f in files_written if f in [entry_file, "/src/index.css", "/src/styles/original.css"]]
 
             lines = [
                 f"## Worker Results",
@@ -2047,7 +2076,7 @@ a {
                 lines.append("### ✅ All Workers Completed Successfully!")
                 lines.append("")
                 lines.append("**Auto-generated files:**")
-                lines.append("- `/src/App.jsx` - Basic layout (needs arrangement)")
+                lines.append(f"- `{entry_file}` - Basic layout (needs arrangement)")
                 lines.append("- `/src/index.css` - Global styles (imports original.css)")
                 if self._original_css:
                     lines.append(f"- `/src/styles/original.css` - Original website CSS ({len(self._original_css)} chars)")
@@ -2066,10 +2095,10 @@ a {
                 # CRITICAL: Prompt for layout-based arrangement
                 lines.append("### 📐 NEXT STEP REQUIRED: Arrange Layout")
                 lines.append("")
-                lines.append("The auto-generated App.jsx uses simple vertical stacking.")
+                lines.append(f"The auto-generated {entry_file} uses simple vertical stacking.")
                 lines.append("**You MUST now:**")
                 lines.append(f"1. Call `get_layout(source_id=\"{self._last_source_id}\")` to get position info")
-                lines.append("2. Rewrite `/src/App.jsx` based on section positions:")
+                lines.append(f"2. Rewrite `{entry_file}` based on section positions:")
                 lines.append("   - Sections with same Y but different X → put in same row (flex)")
                 lines.append("   - Use width ratios for flex proportions")
                 lines.append("3. Then check for errors with `get_build_errors()`")
