@@ -29,8 +29,14 @@ import logging
 import json
 from typing import Optional
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, Header
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query, Header, Request
 from pydantic import BaseModel
+
+# Rate limiting
+from slowapi import Limiter
+from slowapi.util import get_remote_address
+
+limiter = Limiter(key_func=get_remote_address)
 
 from .websocket_manager import (
     get_ws_manager,
@@ -291,7 +297,8 @@ async def _process_chat(
 # ============================================
 
 @router.get("/health")
-async def health_check():
+@limiter.limit("100/minute")
+async def health_check(request: Request):
     """Health check endpoint"""
     return {
         "status": "healthy",
@@ -302,7 +309,8 @@ async def health_check():
 
 
 @router.get("/tools")
-async def get_tools():
+@limiter.limit("100/minute")
+async def get_tools(request: Request):
     """Get available tools"""
     from .mcp_tools import TOOL_DEFINITIONS
 
@@ -313,7 +321,8 @@ async def get_tools():
 
 
 @router.get("/sessions")
-async def get_sessions():
+@limiter.limit("100/minute")
+async def get_sessions(request: Request):
     """Get active sessions (for debugging)"""
     ws_manager = get_ws_manager()
     return ws_manager.get_stats()
@@ -332,15 +341,18 @@ class ActionResultRequest(BaseModel):
 
 
 @router.post("/action-result")
+@limiter.limit("30/minute")
 async def receive_action_result(
-    request: ActionResultRequest,
+    request: Request,
+    body: ActionResultRequest,
     session_id: str = Query(...),
 ):
     """
     Receive action result via HTTP (fallback for WebSocket issues)
 
     Args:
-        request: Action result
+        _request: FastAPI request (for rate limiting)
+        body: Action result
         session_id: Session ID
 
     Returns:
@@ -350,10 +362,10 @@ async def receive_action_result(
 
     ws_manager.resolve_action(
         session_id=session_id,
-        action_id=request.action_id,
-        success=request.success,
-        result=request.result,
-        error=request.error,
+        action_id=body.action_id,
+        success=body.success,
+        result=body.result,
+        error=body.error,
     )
 
-    return {"status": "received", "action_id": request.action_id}
+    return {"status": "received", "action_id": body.action_id}

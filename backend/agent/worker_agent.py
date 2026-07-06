@@ -487,10 +487,8 @@ class WorkerAgent:
                 "worker_namespace": self.config.worker_namespace,
                 "task_description": self.config.task_description[:200] if self.config.task_description else "",
             },
-            {
-                "worker_id": self.worker_id,
-                "section_name": self.section_name,
-            }
+            worker_id=self.worker_id,
+            section_name=self.section_name,
         )
 
         # Pre-validation: Check if we have HTML data
@@ -1246,12 +1244,12 @@ Previous attempt failed to generate any files. You MUST:
         tools: List[Dict[str, Any]],
     ):
         """Call direct Anthropic API"""
-        return await self.anthropic_client.messages.create(
+        return await self.anthropic_client.messages.create(  # type: ignore[union-attr]
             model=self.config.model,
             max_tokens=self.config.max_tokens,
             system=system_prompt,
-            messages=messages,
-            tools=tools,
+            messages=messages,  # type: ignore[arg-type]
+            tools=tools,  # type: ignore[arg-type]
         )
 
     async def _call_openai_proxy(
@@ -1262,16 +1260,16 @@ Previous attempt failed to generate any files. You MUST:
     ):
         """Call OpenAI-compatible proxy"""
         # Convert messages
-        openai_messages = [{"role": "system", "content": system_prompt}]
+        openai_messages: list[dict[str, str]] = [{"role": "system", "content": system_prompt}]
 
         for msg in messages:
-            role = msg.get("role")
+            role = msg.get("role", "")
             content = msg.get("content")
 
             if isinstance(content, str):
-                openai_messages.append({"role": role, "content": content})
+                openai_messages.append({"role": role, "content": content})  # type: ignore[dict-item]
             elif isinstance(content, list):
-                converted = self._convert_content_to_openai(content, role)
+                converted = self._convert_content_to_openai(content, role)  # type: ignore[arg-type]
                 if converted:
                     openai_messages.append(converted)
 
@@ -1289,11 +1287,11 @@ Previous attempt failed to generate any files. You MUST:
         ]
 
         # Call API
-        response = await self.openai_client.chat.completions.create(
+        response = await self.openai_client.chat.completions.create(  # type: ignore[union-attr]
             model=self.config.model,
             max_tokens=self.config.max_tokens,
-            messages=openai_messages,
-            tools=openai_tools,
+            messages=openai_messages,  # type: ignore[arg-type]
+            tools=openai_tools,  # type: ignore[arg-type]
         )
 
         return self._convert_openai_response(response)
