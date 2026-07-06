@@ -1,9 +1,10 @@
 {
   "project": "Perfect Web Clone",
-  "phase": "plan",
+  "phase": "think",
   "step": "init",
   "has_ui": false,
   "agent": "opencode",
   "last_updated": "2026-07-07",
-  "design_doc": "docs/design/design-doc.md"
+  "design_doc": "docs/design/design-doc.md",
+  "goal": "Fix all remaining issues from framework-agnostic hardening: 2 MEDIUM boxlite findings, rate limiting FAIL, 46 blocked tests, Python 3.14 LSP errors"
 }

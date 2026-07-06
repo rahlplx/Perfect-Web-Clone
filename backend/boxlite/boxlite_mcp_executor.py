@@ -32,6 +32,11 @@ from agent.task_contract import (
     create_task_contract,
     create_integration_plan,
 )
+from agent.framework_config import (
+    get_framework_config,
+    FrameworkType,
+    StylingType,
+)
 from agent.agent_protocol import (
     build_spawn_workers_result,
     SpawnWorkersResult,
@@ -1473,6 +1478,18 @@ class BoxLiteMCPExecutor:
                     "css_rules": html_section.get("css_rules", ""),
                 }
 
+                # Get framework/styling from sandbox (default to React + Tailwind)
+                framework_str = getattr(self.sandbox, 'framework', 'react').lower()
+                styling_str = getattr(self.sandbox, 'styling', 'tailwind').lower()
+                try:
+                    framework_type = FrameworkType(framework_str)
+                except ValueError:
+                    framework_type = FrameworkType.REACT
+                try:
+                    styling_type = StylingType(styling_str)
+                except ValueError:
+                    styling_type = StylingType.TAILWIND
+
                 # Create TaskContract
                 contract = create_task_contract(
                     section_id=section_id,
@@ -1480,8 +1497,14 @@ class BoxLiteMCPExecutor:
                     display_name=section_name,
                     section_data=section_data,
                     priority=i + 1,
+                    framework_type=framework_type,
+                    styling_type=styling_type,
                 )
                 self._last_task_contracts.append(contract)
+
+                # Get framework-aware file extension
+                fw_config = get_framework_config(contract.framework_type, contract.styling_type)
+                file_ext = fw_config.file_extension
 
                 # Build section config for spawn_workers
                 section_configs.append({
@@ -1490,7 +1513,7 @@ class BoxLiteMCPExecutor:
                     "section_type": section_type,
                     "display_name": original_name,
                     "task_description": contract.generate_worker_prompt()[:500] + "...",
-                    "target_files": [contract.get_allowed_path(f"{contract._namespace_to_component_name()}.jsx")],  # TODO: make extension configurable per framework
+                    "target_files": [contract.get_allowed_path(f"{contract._namespace_to_component_name()}{file_ext}")],
                     "_task_contract": contract.to_dict(),
                     "_section_data": section_data,
                 })
@@ -1831,6 +1854,17 @@ class BoxLiteMCPExecutor:
                 sorted_section_dirs = sorted(section_dirs, key=natural_sort_key)
                 logger.info(f"[spawn_section_workers] Found section directories: {sorted_section_dirs}")
 
+                # Get framework config for file extension
+                framework_str = getattr(self.sandbox, 'framework', 'react').lower()
+                styling_str = getattr(self.sandbox, 'styling', 'tailwind').lower()
+                try:
+                    framework_enum = FrameworkType(framework_str)
+                    styling_enum = StylingType(styling_str)
+                    fw_config = get_framework_config(framework_enum, styling_enum)
+                    file_ext = fw_config.file_extension
+                except (ValueError, KeyError):
+                    file_ext = ".jsx"  # fallback
+
                 # 为每个 section 目录构建组件信息
                 for section_name in sorted_section_dirs:
                     # 生成组件名：section_1 -> Section1Section
@@ -1839,7 +1873,7 @@ class BoxLiteMCPExecutor:
                         component_name += "Section"
 
                     # 检查组件文件是否存在
-                    component_path = f"{sections_dir}/{section_name}/{component_name}.jsx"
+                    component_path = f"{sections_dir}/{section_name}/{component_name}{file_ext}"
                     if component_path in all_files:
                         section_components.append({
                             "name": component_name,
@@ -1852,12 +1886,22 @@ class BoxLiteMCPExecutor:
 
                 logger.info(f"[spawn_section_workers] Total components found: {len(section_components)}")
 
+                # Get framework config for entry file
+                framework_str = getattr(self.sandbox, 'framework', 'react').lower()
+                styling_str = getattr(self.sandbox, 'styling', 'tailwind').lower()
+                try:
+                    framework_enum = FrameworkType(framework_str)
+                    styling_enum = StylingType(styling_str)
+                    fw_config = get_framework_config(framework_enum, styling_enum)
+                    entry_file = fw_config.root_component_path
+                except (ValueError, KeyError):
+                    entry_file = "/src/App.jsx"  # fallback
+
                 # ========================================
                 # 生成 App entry file (framework-aware, defaults to React)
                 # ========================================
                 # Default to React; framework can be set via sandbox config
                 framework = getattr(self.sandbox, 'framework', 'react').lower()
-                entry_file: str = "/src/App.jsx"  # default for React, overridden per framework below
 
                 if section_components:
                     imports = []

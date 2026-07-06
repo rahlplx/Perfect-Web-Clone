@@ -34,19 +34,27 @@ import importlib.util as _importlib_util
 
 _fc_path = os.path.join(os.path.dirname(__file__), "..", "agent", "framework_config.py")
 _fc_spec = _importlib_util.spec_from_file_location("framework_config", _fc_path)
-_fc_mod = _importlib_util.module_from_spec(_fc_spec)
-_fc_spec.loader.exec_module(_fc_mod)
-FrameworkType = _fc_mod.FrameworkType
-StylingType = _fc_mod.StylingType
-get_framework_config = _fc_mod.get_framework_config
+if _fc_spec is not None and _fc_spec.loader is not None:
+    _fc_mod = _importlib_util.module_from_spec(_fc_spec)
+    _fc_spec.loader.exec_module(_fc_mod)
+    FrameworkType = _fc_mod.FrameworkType
+    StylingType = _fc_mod.StylingType
+    get_framework_config = _fc_mod.get_framework_config
+else:
+    # Fallback for type checking
+    from agent.framework_config import FrameworkType, StylingType, get_framework_config  # type: ignore
 
 _fp_path = os.path.join(os.path.dirname(__file__), "..", "agent", "framework_prompts.py")
 _fp_spec = _importlib_util.spec_from_file_location("framework_prompts", _fp_path)
-_fp_mod = _importlib_util.module_from_spec(_fp_spec)
-_fp_spec.loader.exec_module(_fp_mod)
-get_framework_worker_prompt = _fp_mod.get_framework_worker_prompt
-get_framework_specific_rules = _fp_mod.get_framework_specific_rules
-get_styling_rules = _fp_mod.get_styling_rules
+if _fp_spec is not None and _fp_spec.loader is not None:
+    _fp_mod = _importlib_util.module_from_spec(_fp_spec)
+    _fp_spec.loader.exec_module(_fp_mod)
+    get_framework_worker_prompt = _fp_mod.get_framework_worker_prompt
+    get_framework_specific_rules = _fp_mod.get_framework_specific_rules
+    get_styling_rules = _fp_mod.get_styling_rules
+else:
+    # Fallback for type checking
+    from agent.framework_prompts import get_framework_worker_prompt, get_framework_specific_rules, get_styling_rules  # type: ignore
 
 
 # ============================================
@@ -957,12 +965,12 @@ Do NOT just respond with text - you MUST call the write_code tool.
         tools: List[Dict[str, Any]],
     ):
         """Call direct Anthropic API"""
-        return await self.anthropic_client.messages.create(
+        return await self.anthropic_client.messages.create(  # type: ignore[union-attr]
             model=self.config.model,
             max_tokens=self.config.max_tokens,
             system=system_prompt,
-            messages=messages,
-            tools=tools,
+            messages=messages,  # type: ignore[arg-type]
+            tools=tools,  # type: ignore[arg-type]
         )
 
     async def _call_openai_proxy(
@@ -972,16 +980,16 @@ Do NOT just respond with text - you MUST call the write_code tool.
         tools: List[Dict[str, Any]],
     ):
         """Call OpenAI-compatible proxy"""
-        openai_messages = [{"role": "system", "content": system_prompt}]
+        openai_messages: list[dict[str, str]] = [{"role": "system", "content": system_prompt}]
 
         for msg in messages:
-            role = msg.get("role")
+            role = msg.get("role", "")
             content = msg.get("content")
 
             if isinstance(content, str):
-                openai_messages.append({"role": role, "content": content})
+                openai_messages.append({"role": role, "content": content})  # type: ignore[dict-item]
             elif isinstance(content, list):
-                converted = self._convert_content_to_openai(content, role)
+                converted = self._convert_content_to_openai(content, role)  # type: ignore[arg-type]
                 if converted:
                     openai_messages.append(converted)
 
@@ -997,11 +1005,11 @@ Do NOT just respond with text - you MUST call the write_code tool.
             for t in tools
         ]
 
-        response = await self.openai_client.chat.completions.create(
+        response = await self.openai_client.chat.completions.create(  # type: ignore[union-attr]
             model=self.config.model,
             max_tokens=self.config.max_tokens,
-            messages=openai_messages,
-            tools=openai_tools,
+            messages=openai_messages,  # type: ignore[arg-type]
+            tools=openai_tools,  # type: ignore[arg-type]
         )
 
         return self._convert_openai_response(response)
