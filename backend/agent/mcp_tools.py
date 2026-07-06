@@ -25,7 +25,7 @@ import os
 from typing import Dict, Any, Optional, List, TYPE_CHECKING
 
 # Debug module (modular, controlled by SECTION_DEBUG env var)
-from .section_debug import record_checkpoint, debug_log
+from .section_debug import record_checkpoint
 
 # TaskContract system imports
 from .task_contract import (
@@ -3026,7 +3026,8 @@ Please ensure the source was extracted with DOM tree."""
             record_checkpoint(
                 "playwright_components",
                 playwright_components,
-                {"source_id": source_id, "source_url": source_url}
+                worker_id=source_id,
+                section_name=source_url,
             )
 
             if playwright_components and isinstance(playwright_components, dict):
@@ -3050,7 +3051,8 @@ Please ensure the source was extracted with DOM tree."""
                         record_checkpoint(
                             "converted_section",
                             section,
-                            {"source_id": source_id, "index": i, "original_id": comp.get("id")}
+                            worker_id=source_id,
+                            section_name=str(i),
                         )
 
                         html_sections_list.append(section)
@@ -3070,7 +3072,8 @@ Please ensure the source was extracted with DOM tree."""
                 record_checkpoint(
                     "section_analyzer_result",
                     {"sections": html_sections_list, "type": html_layout.get("type")},
-                    {"source_id": source_id, "source_url": source_url}
+                    worker_id=source_id,
+                    section_name=source_url,
                 )
 
             # 也运行 visual_layout_analyzer 获取 ASCII 图（仅用于视觉参考）
@@ -3180,7 +3183,8 @@ Please ensure the source was extracted with DOM tree."""
                 record_checkpoint(
                     "worker_section_data",
                     section_data,
-                    {"source_id": source_id, "section_id": section_id, "section_type": section_type}
+                    worker_id=source_id,
+                    section_name=section_id,
                 )
 
                 # Create TaskContract for this section

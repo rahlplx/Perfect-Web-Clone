@@ -35,7 +35,7 @@ from .framework_config import get_framework_config, FrameworkType, StylingType
 from .framework_prompts import get_framework_worker_prompt
 
 # Debug module (modular, controlled by SECTION_DEBUG env var)
-from .section_debug import record_checkpoint, debug_log
+from .section_debug import record_checkpoint
 
 logger = logging.getLogger(__name__)
 

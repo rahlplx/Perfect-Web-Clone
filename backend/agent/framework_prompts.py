@@ -5,7 +5,6 @@ These rules are injected into worker agent prompts to guide
 HTML-to-framework code conversion.
 """
 
-import sys
 import os
 import importlib.util
 

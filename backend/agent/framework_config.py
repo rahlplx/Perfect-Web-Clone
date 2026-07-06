@@ -16,6 +16,7 @@ from typing import Dict, List, Optional, Any
 
 
 class FrameworkType(Enum):
+    """Supported frontend frameworks for website cloning."""
     REACT = "react"
     VUE = "vue"
     SVELTE = "svelte"
@@ -25,6 +26,7 @@ class FrameworkType(Enum):
 
 
 class StylingType(Enum):
+    """Supported styling approaches per framework."""
     TAILWIND = "tailwind"
     CSS_MODULES = "css_modules"
     PLAIN_CSS = "plain_css"
@@ -32,6 +34,19 @@ class StylingType(Enum):
 
 @dataclass(frozen=True)
 class FrameworkConfig:
+    """Immutable configuration for a specific framework + styling combination.
+
+    Attributes:
+        framework: The target framework (react, vue, svelte, etc.)
+        styling: The styling approach (tailwind, css_modules, plain_css)
+        file_extension: File extension for components (e.g. '.jsx', '.vue')
+        vite_plugin: Optional Vite plugin package name for this framework
+        package_dependencies: NPM packages required for this framework+styling
+        allowed_extensions: File extensions allowed in the sandbox
+        default_import: Default import statement for root component
+        entry_path: Entry point file path (e.g. '/src/main.tsx')
+        root_component_path: Root component file path (e.g. '/src/App.jsx')
+    """
     framework: FrameworkType
     styling: StylingType
     file_extension: str
@@ -195,6 +210,18 @@ _FrameworkRootComponentPaths = {
 
 
 def get_framework_config(framework: FrameworkType, styling: StylingType) -> FrameworkConfig:
+    """Build the complete FrameworkConfig for a given framework + styling combination.
+
+    Args:
+        framework: Target framework (react, vue, svelte, astro, html, nextjs)
+        styling: Styling approach (tailwind, css_modules, plain_css)
+
+    Returns:
+        Immutable FrameworkConfig with file extensions, dependencies, and paths.
+
+    Raises:
+        ValueError: If framework or styling is not a valid enum value.
+    """
     if not isinstance(framework, FrameworkType):
         raise ValueError(f"Invalid framework: {framework}")
     if not isinstance(styling, StylingType):
@@ -227,6 +254,18 @@ def get_framework_config(framework: FrameworkType, styling: StylingType) -> Fram
 
 
 def get_sandbox_template(framework: FrameworkType, styling: StylingType) -> Dict[str, str]:
+    """Generate the initial file scaffold for a new sandbox project.
+
+    Returns a dict of {relative_path: file_content} for all boilerplate files
+    needed to run the given framework with the chosen styling approach.
+
+    Args:
+        framework: Target framework
+        styling: Styling approach
+
+    Returns:
+        Dict mapping file paths to their template content.
+    """
     config = get_framework_config(framework, styling)
     pkg_json = _generate_package_json(config)
     templates: Dict[str, str] = {
@@ -302,6 +341,17 @@ def get_sandbox_template(framework: FrameworkType, styling: StylingType) -> Dict
 
 
 def get_worker_conversion_rules(framework: FrameworkType) -> str:
+    """Get framework-specific conversion rules for worker agents.
+
+    Returns the HTML-to-framework conversion instructions that worker agents
+    use when generating component code for the given framework.
+
+    Args:
+        framework: Target framework
+
+    Returns:
+        String of conversion rules and guidelines.
+    """
     rules = {
         FrameworkType.REACT: _react_worker_rules(),
         FrameworkType.VUE: _vue_worker_rules(),
@@ -314,6 +364,20 @@ def get_worker_conversion_rules(framework: FrameworkType) -> str:
 
 
 def validate_framework_config(config: FrameworkConfig) -> bool:
+    """Validate a FrameworkConfig against security allowlists.
+
+    Checks that the Vite plugin and all package dependencies are in the
+    approved allowlists (ALLOWED_VITE_PLUGINS, KNOWN_SAFE_PACKAGES).
+
+    Args:
+        config: The configuration to validate.
+
+    Returns:
+        True if all checks pass.
+
+    Raises:
+        ValueError: If a plugin or package is not in the allowlist.
+    """
     if config.vite_plugin not in ALLOWED_VITE_PLUGINS:
         raise ValueError(f"Plugin not allowed: {config.vite_plugin}")
 
