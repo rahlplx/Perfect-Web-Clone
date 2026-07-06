@@ -70,17 +70,30 @@ KNOWN_SAFE_PACKAGES = frozenset([
 
 _REACT_DEPS = {
     "dependencies": {"react": "^18.2.0", "react-dom": "^18.2.0"},
-    "devDependencies": {"@types/react": "^18.2.0", "@types/react-dom": "^18.2.0"},
+    "devDependencies": {
+        "vite": "^5.0.0",
+        "@vitejs/plugin-react": "^4.0.0",
+        "@types/react": "^18.2.0",
+        "@types/react-dom": "^18.2.0",
+    },
 }
 
 _VUE_DEPS = {
     "dependencies": {"vue": "^3.4.0"},
-    "devDependencies": {"@vue/compiler-sfc": "^3.4.0"},
+    "devDependencies": {
+        "vite": "^5.0.0",
+        "@vitejs/plugin-vue": "^5.0.0",
+        "@vue/compiler-sfc": "^3.4.0",
+    },
 }
 
 _SVELTE_DEPS = {
     "dependencies": {"svelte": "^4.0.0"},
-    "devDependencies": {"svelte-check": "^3.6.0"},
+    "devDependencies": {
+        "vite": "^5.0.0",
+        "@sveltejs/vite-plugin-svelte": "^3.0.0",
+        "svelte-check": "^3.6.0",
+    },
 }
 
 _ASTRO_DEPS = {
@@ -88,14 +101,22 @@ _ASTRO_DEPS = {
     "devDependencies": {},
 }
 
+_ASTRO_TAILWIND_DEPS = {
+    "dependencies": {"@astrojs/tailwind": "^5.0.0"},
+    "devDependencies": {},
+}
+
 _HTML_DEPS = {
     "dependencies": {},
-    "devDependencies": {},
+    "devDependencies": {"vite": "^5.0.0"},
 }
 
 _NEXTJS_DEPS = {
     "dependencies": {"next": "^14.0.0", "react": "^18.2.0", "react-dom": "^18.2.0"},
-    "devDependencies": {"@types/react": "^18.2.0", "@types/node": "^20.0.0"},
+    "devDependencies": {
+        "@types/react": "^18.2.0",
+        "@types/node": "^20.0.0",
+    },
 }
 
 _TAILWIND_DEV_DEPS = {
@@ -144,6 +165,9 @@ def get_framework_config(framework: FrameworkType, styling: StylingType) -> Fram
 
     if styling == StylingType.TAILWIND:
         ext_dev_deps.update(_TAILWIND_DEV_DEPS)
+
+    if framework == FrameworkType.ASTRO and styling == StylingType.TAILWIND:
+        ext_deps.update(_ASTRO_TAILWIND_DEPS.get("dependencies", {}))
 
     return FrameworkConfig(
         framework=framework,
@@ -396,7 +420,9 @@ def _html_index(styling: StylingType) -> str:
 </head>
 <body>
   <div id="app"></div>
-  <script src="/src/main.js"></script>
+  <script>
+    console.log('Cloned project loaded');
+  </script>
 </body>
 </html>
 '''
@@ -410,7 +436,9 @@ def _html_index(styling: StylingType) -> str:
 </head>
 <body>
   <div id="app"></div>
-  <script src="/src/main.js"></script>
+  <script>
+    console.log('Cloned project loaded');
+  </script>
 </body>
 </html>
 '''

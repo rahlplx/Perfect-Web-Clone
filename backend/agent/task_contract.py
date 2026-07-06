@@ -637,6 +637,38 @@ class IntegrationPlan:
     root_component: str = "/src/App.jsx"
     global_styles: str = "/src/index.css"
 
+    @staticmethod
+    def _entry_for(framework: FrameworkType) -> str:
+        if framework == FrameworkType.NEXTJS:
+            return "/pages/index.tsx"
+        if framework == FrameworkType.ASTRO:
+            return "/src/pages/index.astro"
+        return "/src/main.jsx"
+
+    @staticmethod
+    def _root_component_for(framework: FrameworkType) -> str:
+        if framework == FrameworkType.VUE:
+            return "/src/App.vue"
+        if framework == FrameworkType.SVELTE:
+            return "/src/App.svelte"
+        if framework == FrameworkType.ASTRO:
+            return "/src/layouts/Layout.astro"
+        if framework == FrameworkType.HTML:
+            return "/index.html"
+        if framework == FrameworkType.NEXTJS:
+            return "/pages/_app.tsx"
+        return "/src/App.jsx"
+
+    @staticmethod
+    def _global_styles_for(framework: FrameworkType, styling: StylingType) -> str:
+        if framework == FrameworkType.ASTRO:
+            return ""
+        if framework == FrameworkType.NEXTJS:
+            return "/styles/globals.css"
+        if styling == StylingType.TAILWIND:
+            return "/src/index.css" if framework == FrameworkType.REACT else "/src/style.css"
+        return "/src/index.css"
+
     # Component order
     components: List[ComponentEntry] = field(default_factory=list)
 
@@ -751,9 +783,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
 """
 
     def generate_package_json(self) -> str:
-        """Generate package.json content"""
+        """Generate package.json content using framework config"""
         import json
-        return json.dumps({
+        config = get_framework_config(self.framework_type, self.styling_type)
+        pkg = {
             "name": "cloned-website",
             "private": True,
             "version": "0.0.1",
@@ -763,18 +796,35 @@ ReactDOM.createRoot(document.getElementById('root')).render(
                 "build": "vite build",
                 "preview": "vite preview"
             },
-            "dependencies": {
-                "react": "^18.2.0",
-                "react-dom": "^18.2.0"
-            },
-            "devDependencies": {
-                "@vitejs/plugin-react": "^4.0.0",
-                "vite": "^5.0.0"
+            "dependencies": dict(config.package_dependencies.get("dependencies", {})),
+            "devDependencies": dict(config.package_dependencies.get("devDependencies", {})),
+        }
+        if self.framework_type == FrameworkType.NEXTJS:
+            pkg["scripts"] = {
+                "dev": "next dev",
+                "build": "next build",
+                "start": "next start",
             }
-        }, indent=2)
+        return json.dumps(pkg, indent=2)
 
     def generate_vite_config(self) -> str:
-        """Generate vite.config.js content"""
+        """Generate vite.config.js content based on framework"""
+        if self.framework_type == FrameworkType.VUE:
+            return """import { defineConfig } from 'vite'
+import vue from '@vitejs/plugin-vue'
+
+export default defineConfig({
+  plugins: [vue()],
+})
+"""
+        if self.framework_type == FrameworkType.SVELTE:
+            return """import { defineConfig } from 'vite'
+import { svelte } from '@sveltejs/vite-plugin-svelte'
+
+export default defineConfig({
+  plugins: [svelte()],
+})
+"""
         return """import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
@@ -950,7 +1000,9 @@ def create_integration_plan(
         plan.framework_type = first.framework_type
         plan.styling_type = first.styling_type
         config = get_framework_config(first.framework_type, first.styling_type)
-        plan.entry_file = f"/src/main{config.file_extension.replace('jsx', 'jsx').replace('tsx', 'tsx')}"
+        plan.entry_file = IntegrationPlan._entry_for(first.framework_type)
+        plan.root_component = IntegrationPlan._root_component_for(first.framework_type)
+        plan.global_styles = IntegrationPlan._global_styles_for(first.framework_type, first.styling_type)
         plan.framework = f"{first.framework_type.value}-{first.styling_type.value}"
 
     # Sort contracts by priority and type

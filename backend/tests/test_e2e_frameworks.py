@@ -67,6 +67,27 @@ class TestReactE2E:
         assert "tailwind.config.js" not in template
         assert "src/App.module.css" in template
 
+    def test_vite_in_dev_deps(self):
+        template = get_sandbox_template(FrameworkType.REACT, StylingType.TAILWIND)
+        pkg = json.loads(template["package.json"])
+        assert "vite" in pkg["devDependencies"], "Missing vite in devDependencies"
+        assert "@vitejs/plugin-react" in pkg["devDependencies"], "Missing plugin in devDependencies"
+
+    def test_entry_file_uses_jsx(self):
+        config = get_framework_config(FrameworkType.REACT, StylingType.TAILWIND)
+        assert config.file_extension == ".jsx"
+
+    def test_html_template_no_missing_js(self):
+        template = get_sandbox_template(FrameworkType.HTML, StylingType.TAILWIND)
+        index_html = template["index.html"]
+        assert "src/main.js" not in index_html, "HTML template references non-existent main.js"
+        assert "console.log" in index_html, "HTML template should use inline script"
+
+    def test_astro_tailwind_has_extra_dep(self):
+        config = get_framework_config(FrameworkType.ASTRO, StylingType.TAILWIND)
+        deps = config.package_dependencies.get("dependencies", {})
+        assert "@astrojs/tailwind" in deps, "Astro+Tailwind missing @astrojs/tailwind dep"
+
 
 class TestVueE2E:
     def test_config_is_valid(self):
@@ -88,6 +109,16 @@ class TestVueE2E:
         prompt = get_framework_worker_prompt(FrameworkType.VUE, StylingType.TAILWIND)
         assert "vue" in prompt.lower()
         assert "sfc" in prompt.lower() or "single file" in prompt.lower()
+
+    def test_vite_in_dev_deps(self):
+        template = get_sandbox_template(FrameworkType.VUE, StylingType.TAILWIND)
+        pkg = json.loads(template["package.json"])
+        assert "vite" in pkg["devDependencies"]
+        assert "@vitejs/plugin-vue" in pkg["devDependencies"]
+
+    def test_entry_file_uses_vue_ext(self):
+        config = get_framework_config(FrameworkType.VUE, StylingType.TAILWIND)
+        assert config.file_extension == ".vue"
 
 
 class TestSvelteE2E:
@@ -111,6 +142,12 @@ class TestSvelteE2E:
         assert "svelte" in prompt.lower()
         assert "{#" in prompt or "on:click" in prompt
 
+    def test_vite_in_dev_deps(self):
+        template = get_sandbox_template(FrameworkType.SVELTE, StylingType.TAILWIND)
+        pkg = json.loads(template["package.json"])
+        assert "vite" in pkg["devDependencies"]
+        assert "@sveltejs/vite-plugin-svelte" in pkg["devDependencies"]
+
 
 class TestAstroE2E:
     def test_config_is_valid(self):
@@ -132,6 +169,21 @@ class TestAstroE2E:
         prompt = get_framework_worker_prompt(FrameworkType.ASTRO, StylingType.TAILWIND)
         assert "astro" in prompt.lower()
         assert "frontmatter" in prompt.lower() or "---" in prompt
+
+    def test_tailwind_has_extra_dep(self):
+        config = get_framework_config(FrameworkType.ASTRO, StylingType.TAILWIND)
+        deps = config.package_dependencies.get("dependencies", {})
+        assert "@astrojs/tailwind" in deps, "Astro+Tailwind missing @astrojs/tailwind"
+
+    def test_no_tailwind_no_extra_dep(self):
+        config = get_framework_config(FrameworkType.ASTRO, StylingType.CSS_MODULES)
+        deps = config.package_dependencies.get("dependencies", {})
+        assert "@astrojs/tailwind" not in deps
+
+    def test_plain_css_no_extra_dep(self):
+        config = get_framework_config(FrameworkType.ASTRO, StylingType.PLAIN_CSS)
+        deps = config.package_dependencies.get("dependencies", {})
+        assert "@astrojs/tailwind" not in deps
 
 
 class TestHtmlE2E:
