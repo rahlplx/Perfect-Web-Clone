@@ -31,6 +31,7 @@ from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
 from fastapi.responses import JSONResponse
+from typing import Optional
 from pydantic import BaseModel
 
 from infrastructure.di import get_container, Container
@@ -263,6 +264,7 @@ async def di_health(container: Container = Depends(get_container)):
 
 class ProjectNameRequest(BaseModel):
     message: str
+    temperature: Optional[float] = None
 
 
 @app.post("/api/project-name")
@@ -279,7 +281,10 @@ async def generate_project_name(
 
         llm = container.llm_provider
         messages = [LLMMessage(role="user", content=f"Generate a short project name (2-5 words) for: {project_request.message}")]
-        response = await llm.complete(messages, model="claude-3-5-haiku-latest", max_tokens=50)
+        kwargs = {"model": "claude-3-5-haiku-latest", "max_tokens": 50}
+        if project_request.temperature is not None:
+            kwargs["temperature"] = project_request.temperature
+        response = await llm.complete(messages, **kwargs)
         name = response.content.strip().strip('"\'')
         logger.info(f"Generated project name: {name}")
         return {"name": name}

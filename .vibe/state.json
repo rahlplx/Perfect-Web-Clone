@@ -1,35 +1,8 @@
 {
   "project": "Perfect Web Clone",
-  "phase": "review",
-  "step": "security-e2e",
+  "phase": "think",
+  "step": "initialize",
   "has_ui": false,
   "agent": "opencode",
-  "last_updated": "2026-07-07",
-  "design_doc": "docs/design/design-doc.md",
-  "goal": "Universal cloning engine (6 frameworks x 3 styling = 18 combinations)",
-  "pr_main": "https://github.com/rahlplx/Perfect-Web-Clone/pull/3",
-  "pr_followup": "https://github.com/rahlplx/Perfect-Web-Clone/pull/4",
-  "tests_passing": 697,
-  "tests_excluded": "1 skipped (test_shell_background)",
-  "harness": {
-    "e2e_live": "PASS (51 tests, including 404/405 unified format)",
-    "e2e_security": "PASS (25 tests, path traversal, auth, rate limit, HTTP methods)",
-    "async_adapters": "PASS (check-async-adapters.sh)",
-    "security_completeness": "PASS (check-security-completeness.sh)",
-    "cache_ttl": "PASS (check-cache-ttl.sh)"
-  },
-  "review_findings": [
-    "[FIXED] 404/405 responses now use unified {success, error} format",
-    "[FIXED] Rate-limit bleed between tests resolved",
-    "[FIXED] Oversized payload handling tolerant",
-    "[FIXED] main_app unit test adapted to new error format"
-  ],
-  "achievements": [
-    "697 tests passing (was 141 → 610 → 697)",
-    "51 E2E live tests against real backend",
-    "Full security boundary test suite (path traversal, auth bypass, rate limiting, error leakage)",
-    "3/3 WSL harness scripts passing",
-    "Unified error format on ALL HTTP status codes (including 404/405)",
-    "DI container live-wired into FastAPI"
-  ]
+  "last_updated": "2026-07-07"
 }
