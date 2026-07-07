@@ -2,6 +2,10 @@
 Base MCP Tool Executor
 
 Shared execute() routing and result parsing for WebContainer and BoxLite executors.
+
+Hexagonal Architecture:
+  This implements the executor/driven-adapter pattern.
+  Tool handlers are driven adapters; the execute() method is the port interface.
 """
 
 from __future__ import annotations

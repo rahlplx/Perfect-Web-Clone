@@ -3,6 +3,10 @@ Base Worker Agent
 
 Shared logic for WebContainer and BoxLite worker agents.
 Template Method pattern: subclass overrides hooks, base owns flow.
+
+Hexagonal Architecture:
+  LLM providers should implement ports.llm.LLMProviderPort
+  (new port not yet imported — keep existing anthropic/openai imports for now).
 """
 
 from __future__ import annotations

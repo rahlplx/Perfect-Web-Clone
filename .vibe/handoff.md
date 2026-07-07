@@ -1,38 +1,47 @@
-# Handoff: Phase 2 Complete
+# VIBE Handoff: Architecture + Test Coverage + Type Safety
 
-## What Was Done
-Phase 2 hardening: DRY base classes + mock sandbox + 45 new tests.
+## Current State
+- **Tests:** 226/227 passing (1 skipped)
+- **Phase:** BUILD - Wave 1 (Test Coverage)
+- **Branch:** main
 
-## Files Changed
-- `backend/agent/base_worker.py` — BaseWorkerAgent ABC (Template Method)
-- `backend/agent/base_executor.py` — BaseMCPExecutor ABC
-- `backend/boxlite/mock_sandbox.py` — In-memory MockBoxLiteSandboxManager
-- `backend/tests/conftest.py` — sandbox fixture → mock
+## Phase 1: Test Coverage (IN PROGRESS)
 
-## Test Results
-- **186/187 pass** (was 141, gained 45 boxlite tool tests)
-- 1 skipped: test_shell_background (asyncio.create_subprocess_shell compat)
+### Wave 1: Independent Tests (No Dependencies)
+| Agent | Status | Tests Added |
+|-------|--------|-------------|
+| T-PROTO | PENDING | agent_protocol.py |
+| T-EXEC | PENDING | base_executor.py |
+| T-CACHE | PENDING | cache/memory_store.py |
+| T-CONTRACT | PENDING | task_contract.py |
 
-## Harness (6/6)
-| Check | Status |
-|-------|--------|
-| Tests | PASS |
-| Rate limiting | PASS |
-| Security | PASS (CORS env-based, async I/O) |
-| Code quality | PASS (base classes added) |
-| Performance | PASS (asyncio.to_thread) |
-| Documentation | PASS |
+### Wave 2: Infrastructure-Dependent Tests
+| Agent | Status | Tests Added |
+|-------|--------|-------------|
+| T-MCP | PENDING | mcp_tools.py |
+| T-ROUTES | PENDING | boxlite/routes.py |
+| T-MAIN | PENDING | main.py |
 
-## Git
-- Branch: main
-- Commits: `c3a6a4b` (CORS/async), `ff1bbdb` (DRY/mock)
+### Test Infrastructure (Create First)
+- tests/factories.py
+- tests/mocks.py
+- pytest.ini updates
 
-## Remaining (deferred)
-- Refactor BoxLiteWorkerAgent → inherit BaseWorkerAgent
-- Refactor BoxLiteMCPExecutor → inherit BaseMCPExecutor
-- Both work as-is, inheritance deferred due to tight coupling
+## Phase 2: Hexagonal Architecture (PENDING)
+- A-PORTS: Create port interfaces
+- A-LLM: Extract LLM adapters
+- A-CACHE: Extract cache adapters
+- A-SANDBOX: Formalize sandbox adapters
+- A-DI: DI container
+- A-REFACTOR: Update imports, delete dead code
 
-## For Next Agent
-- All code on main, tests green, harness PASS
-- No blocking issues
-- State file: `.vibe/state.json` → phase: done
+## Phase 3: Type Safety (PENDING)
+- TYPE-INPUTS: Typed MCP tool models
+- TYPE-MSGS: Typed LLM message models
+- TYPE-EXEC: Apply typed models
+
+## Success Metrics
+- Test count: 226 → 300+
+- File coverage: 14% → 40%+
+- Hexagonal compliance: 15% → 40%+
+- Dict[str,Any]: 170+ → <85
