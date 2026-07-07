@@ -1,9 +1,11 @@
+"""Dependency injection container for hexagonal architecture."""
 import os
 from functools import lru_cache
 from typing import Optional
 
+
 class Container:
-    """Dependency injection container for hexagonal architecture."""
+    """DI container with lazy singleton resolution."""
     
     def __init__(self):
         self._singletons = {}
@@ -29,19 +31,31 @@ class Container:
     
     @property
     def sandbox_factory(self):
-        """Factory for creating sandbox instances."""
         from adapters.sandbox.mock import MockSandboxAdapter
         return MockSandboxAdapter
     
     def set_llm_provider(self, provider):
-        """Override LLM provider (for testing)."""
         self._singletons["llm"] = provider
     
     def set_cache(self, cache):
-        """Override cache (for testing)."""
         self._singletons["cache"] = cache
+    
+    def reset(self):
+        self._singletons.clear()
+    
+    def health(self) -> dict:
+        return {
+            "llm_provider": type(self.llm_provider).__name__,
+            "cache": type(self.cache).__name__,
+            "sandbox_factory": self.sandbox_factory.__name__,
+        }
+
 
 @lru_cache()
 def get_container() -> Container:
-    """Get or create the global DI container."""
     return Container()
+
+
+def get_container_dependency():
+    """FastAPI dependency that returns the global container."""
+    return get_container()

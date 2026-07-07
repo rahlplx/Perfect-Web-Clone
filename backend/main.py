@@ -32,7 +32,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import APIKeyHeader
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-import anthropic
+
+from infrastructure.di import get_container, Container
 
 # Rate limiting with slowapi
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -217,6 +218,15 @@ async def health_check():
     }
 
 
+@app.get("/api/di")
+async def di_health(container: Container = Depends(get_container)):
+    """DI container health — shows which adapters are active."""
+    return {
+        "status": "healthy",
+        "adapters": container.health(),
+    }
+
+
 # ============================================
 # Project Naming API
 # ============================================
@@ -227,45 +237,20 @@ class ProjectNameRequest(BaseModel):
 
 @app.post("/api/project-name")
 @limiter.limit("30/minute")
-async def generate_project_name(request: Request, project_request: ProjectNameRequest, _: None = Depends(verify_api_key)):
-    """
-    Generate a short project name based on user intent.
-    Uses Claude haiku for fast, low-cost naming.
-    """
+async def generate_project_name(
+    request: Request,
+    project_request: ProjectNameRequest,
+    _: None = Depends(verify_api_key),
+    container: Container = Depends(get_container),
+):
+    """Generate a short project name using async LLM adapter."""
     try:
-        # Get API key (support both direct and proxy)
-        api_key = os.getenv("ANTHROPIC_API_KEY") or os.getenv("CLAUDE_PROXY_API_KEY")
-        base_url = os.getenv("CLAUDE_PROXY_BASE_URL")
+        from ports.llm import LLMMessage
 
-        if not api_key:
-            logger.warning("No API key for project naming")
-            return {"name": "Untitled Project"}
-
-        # Create Anthropic client
-        client_kwargs = {"api_key": api_key}
-        if base_url:
-            client_kwargs["base_url"] = base_url
-
-        client = anthropic.Anthropic(**client_kwargs)
-
-        # Simple prompt for naming
-        response = client.messages.create(
-            model="claude-3-5-haiku-latest",
-            max_tokens=50,
-            messages=[
-                {
-                    "role": "user",
-                    "content": f"Based on this user intent, generate a short project name (2-5 words). Only return the name, nothing else.\n\nUser intent: {project_request.message}"
-                }
-            ]
-        )
-
-        # Extract the name from response
-        name = response.content[0].text.strip()
-
-        # Clean up the name (remove quotes if any)
-        name = name.strip('"\'')
-
+        llm = container.llm_provider
+        messages = [LLMMessage(role="user", content=f"Generate a short project name (2-5 words) for: {project_request.message}")]
+        response = await llm.complete(messages, model="claude-3-5-haiku-latest", max_tokens=50)
+        name = response.content.strip().strip('"\'')
         logger.info(f"Generated project name: {name}")
         return {"name": name}
 
@@ -312,6 +297,11 @@ async def startup_event():
     logger.info("=" * 50)
     logger.info("Perfect Web Clone API Starting...")
     logger.info("=" * 50)
+
+    # Initialize DI container
+    container = get_container()
+    app.state.container = container
+    logger.info(f"DI container initialized: {container.health()}")
 
     # Clean up BoxLite dev server port (8080) on startup
     dev_port = int(os.getenv("BOXLITE_DEV_PORT", "8080"))
