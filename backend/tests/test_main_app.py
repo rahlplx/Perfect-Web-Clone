@@ -149,7 +149,8 @@ async def test_404_unknown_route(app):
         resp = await client.get("/this-route-does-not-exist")
     assert resp.status_code == 404
     body = resp.json()
-    assert "detail" in body
+    assert "error" in body
+    assert body["success"] is False
 
 
 @pytest.mark.asyncio

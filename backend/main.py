@@ -98,10 +98,40 @@ app.add_middleware(
 
 # Rate limiting
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+async def _rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(
+        status_code=429,
+        content={"success": False, "error": f"Rate limit exceeded: {exc.detail}"},
+    )
+
+
+app.add_exception_handler(RateLimitExceeded, _rate_limit_handler)
 
 
 # Unified error response format
+# FastAPI/Starlette has default handlers for 404/405 that bypass HTTPException handler
+
+
+@app.exception_handler(404)
+async def not_found_handler(request: Request, exc):
+    detail = str(exc.detail) if hasattr(exc, "detail") else "Not found"
+    return JSONResponse(
+        status_code=404,
+        content={"success": False, "error": detail},
+    )
+
+
+@app.exception_handler(405)
+async def method_not_allowed_handler(request: Request, exc):
+    detail = str(exc.detail) if hasattr(exc, "detail") else "Method not allowed"
+    return JSONResponse(
+        status_code=405,
+        content={"success": False, "error": detail},
+    )
+
+
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     return JSONResponse(
