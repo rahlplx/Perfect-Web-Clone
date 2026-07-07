@@ -11,9 +11,9 @@ class AnthropicAdapter:
         api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
         base_url = base_url or os.getenv("CLAUDE_PROXY_BASE_URL")
         kwargs = {"api_key": api_key}
-        if base_url:
+        if base_url is not None:
             kwargs["base_url"] = base_url
-        self._client = anthropic.Anthropic(**kwargs)
+        self._client = anthropic.AsyncAnthropic(**kwargs)
 
     async def complete(
         self,
@@ -30,9 +30,14 @@ class AnthropicAdapter:
         }
         if tools:
             kwargs["tools"] = tools
-        response = self._client.messages.create(**kwargs)
+        response = await self._client.messages.create(**kwargs)
+
+        content = ""
+        if response.content and len(response.content) > 0:
+            content = response.content[0].text
+
         return LLMResponse(
-            content=response.content[0].text,
+            content=content,
             model=response.model,
             usage={"input": response.usage.input_tokens, "output": response.usage.output_tokens},
             stop_reason=response.stop_reason,
@@ -44,10 +49,10 @@ class AnthropicAdapter:
         model: str = "claude-3-5-sonnet-20241022",
         max_tokens: int = 8192,
     ) -> AsyncGenerator[str, None]:
-        with self._client.messages.stream(
+        async with self._client.messages.stream(
             model=model,
             max_tokens=max_tokens,
             messages=[{"role": m.role, "content": m.content} for m in messages],
         ) as stream:
-            for text in stream.text_stream:
+            async for text in stream.text_stream:
                 yield text

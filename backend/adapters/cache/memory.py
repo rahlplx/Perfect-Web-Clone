@@ -32,7 +32,14 @@ class InMemoryCacheAdapter:
         return self._store.pop(key, None) is not None
 
     async def exists(self, key: str) -> bool:
-        return key in self._store
+        entry = self._store.get(key)
+        if entry is None:
+            return False
+        _, expires_at = entry
+        if time.time() > expires_at:
+            del self._store[key]
+            return False
+        return True
 
     async def clear(self) -> int:
         count = len(self._store)

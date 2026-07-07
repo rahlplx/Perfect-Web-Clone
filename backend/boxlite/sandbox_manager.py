@@ -587,9 +587,10 @@ class BoxLiteSandboxManager:
 
     async def create_directory(self, path: str) -> bool:
         """Create a directory"""
+        from agent.security import validate_path
         try:
-            normalized = path.lstrip("/")
-            dir_path = self.work_dir / normalized
+            file_path_str = validate_path(path, str(self.work_dir))
+            dir_path = Path(file_path_str)
             dir_path.mkdir(parents=True, exist_ok=True)
             return True
         except Exception as e:
@@ -598,12 +599,13 @@ class BoxLiteSandboxManager:
 
     async def rename_file(self, old_path: str, new_path: str) -> bool:
         """Rename/move a file"""
+        from agent.security import validate_path
         try:
-            old_normalized = old_path.lstrip("/")
-            new_normalized = new_path.lstrip("/")
+            old_file_str = validate_path(old_path, str(self.work_dir))
+            new_file_str = validate_path(new_path, str(self.work_dir))
 
-            old_file = self.work_dir / old_normalized
-            new_file = self.work_dir / new_normalized
+            old_file = Path(old_file_str)
+            new_file = Path(new_file_str)
 
             if not old_file.exists():
                 return False
@@ -615,8 +617,8 @@ class BoxLiteSandboxManager:
             old_file.rename(new_file)
 
             # Update state
-            old_state = f"/{old_normalized}"
-            new_state = f"/{new_normalized}"
+            old_state = f"/{old_file.relative_to(self.work_dir).as_posix()}"
+            new_state = f"/{new_file.relative_to(self.work_dir).as_posix()}"
             if old_state in self.state.files:
                 self.state.files[new_state] = self.state.files.pop(old_state)
 
